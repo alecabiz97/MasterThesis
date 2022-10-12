@@ -11,7 +11,8 @@ class AvastDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         data = self.data[idx]
-        item = self.tokenizer(data,truncation=True, padding=True,max_length=self.max_len,return_tensors='pt')
+        # print(len(data))
+        item = self.tokenizer(data,truncation=True, padding='max_length',max_length=self.max_len,return_tensors='pt')
         item['input_ids']=item['input_ids'].squeeze()
         item['attention_mask']=item['attention_mask'].squeeze()
         # item = {key: torch.tensor(val[idx]) for key, val in encodings.items()}

@@ -88,7 +88,7 @@ def create_cleaned_files_api(files,output_dir):
 
     print(f'Number of problems: {cnt_problem_files}')
 
-def create_avast_dataframe(files_path,labels_file,n_sample=None):
+def create_avast_dataframe(files_path,labels_file,n_sample=None,feature=None):
     avast_files = getListOfFiles(files_path)
     if n_sample:
         avast_files = avast_files[0:n_sample]
@@ -113,7 +113,10 @@ def create_avast_dataframe(files_path,labels_file,n_sample=None):
             index = data[:, 0] == hash
             hash, family, class_type, date = data[index][0]
 
-            words = '  '.join(get_all_words_from_dict(d))
+            if feature:
+                words='  '.join(d['behavior']['summary'][feature])
+            else:
+                words = '  '.join(get_all_words_from_dict(d))
 
             df_tmp = pd.DataFrame({'sha256': hash,
                                    'classification_family': family,
@@ -135,16 +138,23 @@ if __name__ == '__main__':
 
     avast_root = 'Avast/public_small_reports'
     labels_file = 'Avast/public_labels.csv'
+    
+    df_path='Avast/avast_dataframe_api.pkl'
+    df_train_path='Avast/avast_dataframe_train_api.pkl'
+    df_test_path='Avast/avast_dataframe_test_api.pkl'
+    vocab_file='vocab_avast_api.txt'
 
-    # df=create_avast_dataframe(avast_root,labels_file) # Create dataframe (all samples)
-    # df.to_pickle('Avast/avast_dataframe.pkl')
-    # df = pd.read_pickle('Avast/avast_dataframe.pkl')
-    # df_tr, df_ts = split_train_test(df,train_test_date='2019-08-01') # Split train and test
-    # df_tr.to_pickle('Avast/avast_dataframe_train.pkl')
-    # df_ts.to_pickle('Avast/avast_dataframe_test.pkl')
+    feat='resolved_apis'
 
-    df_train = pd.read_pickle('Avast/avast_dataframe_train.pkl')
-    df_ts = pd.read_pickle('Avast/avast_dataframe_test.pkl')
+    df=create_avast_dataframe(avast_root,labels_file,feature=feat) # Create dataframe (apis)
+    df.to_pickle(df_path)
+    df = pd.read_pickle(df_path)
+    df_tr, df_ts = split_train_test(df,train_test_date='2019-08-01') # Split train and test
+    df_tr.to_pickle(df_train_path)
+    df_ts.to_pickle(df_test_path)
+
+    df_train = pd.read_pickle(df_train_path)
+    df_ts = pd.read_pickle(df_test_path)
 
     df_tr,df_val=split_train_val(df_train,val_frac=0.1) # Split train and validation
 
@@ -158,14 +168,14 @@ if __name__ == '__main__':
     print(set(df_ts['classification_family']))
 
     # Create vocab file
-    # all_words=[]
-    # x = df_tr['words'].values
-    # for i in range(len(df_tr)):
-    #     all_words.extend(x[i].split('  '))
-    # create_vocab_file('vocab_avast.txt',all_words,n_most_common=10000)
+    all_words=[]
+    x = df_tr['words'].values
+    for i in range(len(df_tr)):
+        all_words.extend(x[i].split('  '))
+    create_vocab_file(vocab_file,all_words,n_most_common=10000)
 
     # Read vocab file
-    with open('vocab_avast.txt', 'r') as fp:
+    with open(vocab_file, 'r') as fp:
         vocab = fp.read()
         vocab = vocab.split('\n')
 

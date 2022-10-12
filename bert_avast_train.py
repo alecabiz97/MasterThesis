@@ -78,12 +78,16 @@ def train_model(model,dataloaders, optimizer, num_epochs=50):
 
 if __name__ == '__main__':
     # Hyperparameters
-    # MAX_LEN = 128
+    MAX_LEN = 128
     BATCH_SIZE = 64
-    EPOCHS = 3
+    EPOCHS = 10
     LEARNING_RATE = 1e-05
+    N_SAMPLE_PER_CLASS=20
+    MODEL_FILENAME='Avast/best_model_api'
+    HISTORY_FILENAME='Avast/history_api'
+    VOCAB_FILENAME = 'vocab_avast_api.txt'
 
-    with open('vocab_avast.txt', 'r') as fp:
+    with open(VOCAB_FILENAME, 'r') as fp:
         vocab=fp.read()
         vocab=vocab.split('\n')
 
@@ -92,11 +96,10 @@ if __name__ == '__main__':
     tokenizer = tokenizer.train_new_from_iterator(vocab, vocab_size=10000)
     # tokenizer = RobertaTokenizer.from_pretrained("microsoft/codebert-base")
 
-    df_tr = pd.read_pickle('Avast/avast_dataframe_train.pkl')
+    df_tr = pd.read_pickle('Avast/avast_dataframe_train_api.pkl')
 
     # Subset
-    df_train=create_subset(df_tr,n_sample_per_class=10)
-
+    df_train=create_subset(df_tr,n_sample_per_class=N_SAMPLE_PER_CLASS)
 
     # Split train, validation and test
     df_tr, df_val = split_train_val(df_train,val_frac=0.1)
@@ -129,10 +132,12 @@ if __name__ == '__main__':
         model,history=train_model(model,dataloaders,optimizer,num_epochs=EPOCHS)
 
         # Save model and history
-        # torch.save(model.state_dict(), f'Avast/best_model_{MAX_LEN}.pt')
-        # f = open(f'Avast/history_{MAX_LEN}.pkl', 'wb')
-        # pickle.dump(history, f)
-        # f.close()
+        model_filename = MODEL_FILENAME + '_' + str(MAX_LEN) + '.pt'
+        hist_filename = HISTORY_FILENAME + '_' + str(MAX_LEN) + '.pkl'
+        torch.save(model.state_dict(), model_filename)
+        f = open(hist_filename, 'wb')
+        pickle.dump(history, f)
+        f.close()
 
         # Plot the train
         #plot_history(history)

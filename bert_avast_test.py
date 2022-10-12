@@ -15,10 +15,13 @@ from torch.nn.functional import softmax
 import pickle
 
 # Hyperparameters
-MAX_LEN = 256
-BATCH_SIZE = 2
+MAX_LEN = 512
+N_SAMPLE_PER_CLASS=30
+MODEL_FILENAME=f'Avast/best_model_api_{MAX_LEN}.pt'
+HISTORY_FILENAME=f'Avast/history_api_{MAX_LEN}.pkl'
+VOCAB_FILENAME='vocab_avast_api.txt'
 
-with open('vocab_avast.txt', 'r') as fp:
+with open(VOCAB_FILENAME, 'r') as fp:
     vocab = fp.read()
     vocab = vocab.split('\n')
 
@@ -26,14 +29,14 @@ tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
 tokenizer = tokenizer.train_new_from_iterator(vocab, vocab_size=10000)
 
 # Plot the train history
-# with open(f'Avast/history_{MAX_LEN}.pkl','rb') as fp:
+# with open(HISTORY_FILENAME,'rb') as fp:
 #     history=pickle.load(fp)
 # plot_history(history)
 
-df_ts = pd.read_pickle('Avast/avast_dataframe_test.pkl')
+df_ts = pd.read_pickle('Avast/avast_dataframe_test_api.pkl')
 
 # Subset
-df_ts=create_subset(df_ts,n_sample_per_class=10)
+df_ts=create_subset(df_ts,n_sample_per_class=N_SAMPLE_PER_CLASS)
 
 print(f'Test samples: {len(df_ts)}')
 print(len(set(df_ts['classification_family'])))
@@ -42,7 +45,7 @@ test_dataset = AvastDataset(df_ts, tokenizer, MAX_LEN)
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=len(test_dataset), shuffle=False)
 
 model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased',num_labels=10)
-model.load_state_dict(torch.load(f'Avast/best_model_{MAX_LEN}.pt'))
+model.load_state_dict(torch.load(MODEL_FILENAME))
 model.to('cpu')
 print('\nSTART TESTING')
 
