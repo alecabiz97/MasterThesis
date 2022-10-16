@@ -78,14 +78,24 @@ def train_model(model,dataloaders, optimizer, num_epochs=50):
 
 if __name__ == '__main__':
     # Hyperparameters
-    MAX_LEN = 128
-    BATCH_SIZE = 64
-    EPOCHS = 10
-    LEARNING_RATE = 1e-05
-    N_SAMPLE_PER_CLASS=20
-    MODEL_FILENAME='Avast/best_model_api'
-    HISTORY_FILENAME='Avast/history_api'
-    VOCAB_FILENAME = 'vocab_avast_api.txt'
+    MAX_LEN_LIST = [128,256,512]
+    BATCH_SIZE = 16
+    EPOCHS = 15
+    LEARNING_RATE = 1e-04
+    N_SAMPLE_PER_CLASS=50
+
+    API_FEAT=False # if True uses API feature otherwise it uses every run-time info
+
+    if API_FEAT:
+        DATAFRAME_FILENAME='Avast/avast_dataframe_train_api.pkl'
+        MODEL_FILENAME='Avast/best_model_api'
+        HISTORY_FILENAME='Avast/history_api'
+        VOCAB_FILENAME = 'vocab_avast_api.txt'
+    else:
+        DATAFRAME_FILENAME = 'Avast/avast_dataframe_train.pkl'
+        MODEL_FILENAME = 'Avast/best_model'
+        HISTORY_FILENAME = 'Avast/history'
+        VOCAB_FILENAME = 'vocab_avast.txt'
 
     with open(VOCAB_FILENAME, 'r') as fp:
         vocab=fp.read()
@@ -93,10 +103,10 @@ if __name__ == '__main__':
 
     # tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
-    tokenizer = tokenizer.train_new_from_iterator(vocab, vocab_size=10000)
+    tokenizer = tokenizer.train_new_from_iterator(vocab, vocab_size=20000)
     # tokenizer = RobertaTokenizer.from_pretrained("microsoft/codebert-base")
 
-    df_tr = pd.read_pickle('Avast/avast_dataframe_train_api.pkl')
+    df_tr = pd.read_pickle(DATAFRAME_FILENAME)
 
     # Subset
     df_train=create_subset(df_tr,n_sample_per_class=N_SAMPLE_PER_CLASS)
@@ -110,7 +120,7 @@ if __name__ == '__main__':
     print(f"Number of malware families (Train): {len(set(df_train['classification_family']))}")
     print(f"Number of malware families (Validation): {len(set(df_val['classification_family']))}")
 
-    for MAX_LEN in [128,256,512]:
+    for MAX_LEN in MAX_LEN_LIST:
         print(f'MAX LEN: {MAX_LEN}')
         train_dataset = AvastDataset(df_tr, tokenizer, MAX_LEN)
         valid_dataset = AvastDataset(df_val, tokenizer, MAX_LEN)
@@ -118,8 +128,8 @@ if __name__ == '__main__':
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
         val_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-        # device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        device = torch.device('cpu')
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        # device = torch.device('cpu')
         # print(device)
 
         # model = BERTClass()
