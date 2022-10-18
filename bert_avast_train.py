@@ -103,7 +103,7 @@ if __name__ == '__main__':
 
     # tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
-    tokenizer = tokenizer.train_new_from_iterator(vocab, vocab_size=20000)
+    tokenizer = tokenizer.train_new_from_iterator(vocab, vocab_size=50000)
     # tokenizer = RobertaTokenizer.from_pretrained("microsoft/codebert-base")
 
     df_tr = pd.read_pickle(DATAFRAME_FILENAME)
