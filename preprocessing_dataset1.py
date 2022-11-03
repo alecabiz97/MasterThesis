@@ -1,0 +1,104 @@
+import json
+from utils import *
+import csv
+from tqdm import tqdm
+from collections import Counter
+
+
+def merge_dict(dicts):
+    new_d = {}
+    for d in dicts:
+        for k, v in d.items():
+            if k in new_d.keys():
+                new_d[k] += v
+            else:
+                new_d[k] = v
+    return new_d
+
+
+def opt_api(d):
+    apis = list(d.keys())
+    for i in range(len(apis)):
+        api_name = apis[i]
+        n = d[api_name]
+        if n <= 10:
+            apis[i] = f"Low_{api_name}"
+        elif 10 < n <= 100:
+            apis[i] = f"Med_{api_name}"
+        elif 100 < n <= 1000:
+            apis[i] = f"High_{api_name}"
+        elif n > 1000:
+            apis[i] = f"VeryHigh_{api_name}"
+    return apis
+
+if __name__ == '__main__':
+    benign_root = 'dataset1\\ben_reports'
+    malign_root = 'dataset1\\mal_reports'
+
+    ben_files = getListOfFiles(benign_root)
+    mal_files = getListOfFiles(malign_root)
+
+    df = pd.DataFrame({'name': str(), 'label': int(), 'date': str()}, index=[])
+    i = 0
+    for filepath in tqdm(ben_files + mal_files):
+        try:
+            with open(filepath, 'r') as fp:
+                data = json.load(fp)
+            data_keys = data.keys()
+            if "behavior" in data_keys:
+                beh_keys = data["behavior"].keys()
+                if "apistats" in beh_keys and "summary" in beh_keys:
+                    pids = list(data["behavior"]["apistats"].keys())
+
+                    apis_stats = [data["behavior"]["apistats"][pids[i]] for i in range(len(pids))]
+                    apis_stats = merge_dict(apis_stats)
+
+                    sum_keys=data["behavior"]["summary"].keys()
+
+                    regkey_read = data["behavior"]["summary"]["regkey_read"] if "regkey_read" in sum_keys else []
+                    regkey_opened = data["behavior"]["summary"]["regkey_opened"] if "regkey_opened" in sum_keys else []
+                    dll_loaded = data["behavior"]["summary"]["dll_loaded"] if "dll_loaded" in sum_keys else []
+                    mutex = data["behavior"]["summary"]["mutex"] if "mutex" in sum_keys else []
+
+                    d = {"static":data["static"],
+                            "behavior": {"apistats": list(apis_stats),
+                                              "apistats_opt": opt_api(apis_stats),
+                                              "summary": {"regkey_opened": regkey_opened,
+                                                          "regkey_read": regkey_read,
+                                                          "dll_loaded": dll_loaded,
+                                                          "mutex": mutex}}}
+
+                    name = filepath.split("\\")[-1].split(".")[0]
+                    label = 0 if filepath.split("\\")[-2] == 'ben_reports' else 1  # 0 -> benign , 1 -> malign
+                    date = data['static']['pe_timestamp'].split(" ")[0]
+
+                    p = "dataset1\\ben_preproc\\" if label == 0 else "dataset1\\mal_preproc\\"
+
+                    json_object = json.dumps(d, indent=4)
+                    with open(f"{p}{name}.json", "w") as outfile:
+                        outfile.write(json_object)
+
+                    df_tmp = pd.DataFrame({'name': name,
+                                           'label': label,
+                                           'date': date},
+                                          index=[i])
+                    i += 1
+                    df = pd.concat([df, df_tmp], ignore_index=True)
+
+        except:
+            pass
+
+    n_ben = len(df.query("label == 0"))
+    n_mal = len(df.query("label == 1"))
+    s1 = f"Created {n_ben}/{len(ben_files)} ben files"
+    s2 = f"Created {n_mal}/{len(mal_files)} mal files"
+
+    print(s1)
+    print(s2)
+    df.to_csv(f'dataset1\\labels_preproc.csv', index=False)
+
+
+
+
+
+
