@@ -75,8 +75,8 @@ behavior=map(jsons) do j
 end
 
 
-x = [api,api_opt]
-y = ["API", "API OPT"]
+x = [behavior,static]
+y = ["BEHAVIOR","STATIC"]
 
 p = plot()
 for (jsons, name) in zip(x, y)

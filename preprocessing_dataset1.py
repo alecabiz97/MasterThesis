@@ -4,6 +4,16 @@ import csv
 from tqdm import tqdm
 from collections import Counter
 
+# Creates json files in two folder (ben_preproc and mal_preproc) with the preprocessed data of dataset1.
+# In each json file there are only the behavior and static info.
+# In the behavior part there are:
+#   -apistats (pid independent, merge of dictionary)
+#   -apistats_opt (optimized)
+#   -summary:
+#       -regkey_opened
+#       -regkey_read
+#       -dll_loaded
+#       -mutex
 
 def merge_dict(dicts):
     new_d = {}
@@ -78,7 +88,7 @@ if __name__ == '__main__':
                     with open(f"{p}{name}.json", "w") as outfile:
                         outfile.write(json_object)
 
-                    df_tmp = pd.DataFrame({'name': name,
+                    df_tmp = pd.DataFrame({'name': f"{p}{name}",
                                            'label': label,
                                            'date': date},
                                           index=[i])

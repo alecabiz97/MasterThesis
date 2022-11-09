@@ -6,7 +6,50 @@ from collections import Counter
 import numpy as np
 import matplotlib.pyplot as plt
 import re
+from tqdm import tqdm
+import json
 
+
+def get_label_text_dataframe_avast(meta_path):
+    meta = pd.read_csv(meta_path)
+    root = 'Avast\\public_small_reports'
+    classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
+    df = pd.DataFrame({"label": int(),
+                       "text": str()}, index=[])
+    for i, (sha, family) in enumerate(tqdm(meta[["sha256", "classification_family"]].values)):
+        filepath = f"{root}\\{sha}.json"
+        try:
+            with open(filepath, 'r') as fp:
+                data = json.load(fp)
+
+            text = preprocessing_data(str(data["behavior"]))
+            # text=" ".join(data["behavior"]["apistats"])
+
+            y = classes.index(family)
+            df_tmp = pd.DataFrame({'label': y,
+                                   'text': text}, index=[i])
+            df = pd.concat([df, df_tmp], ignore_index=True)
+            pass
+        except:
+            pass
+
+    return df
+
+def get_label_text_dataframe_dataset1(meta_path):
+    meta = pd.read_csv(meta_path)
+    df = pd.DataFrame({"label": int(),
+                       "text": str()}, index=[])
+    for i, (filepath, label) in enumerate(tqdm(meta[['name', 'label']].values)):
+        with open(f"{filepath}.json", 'r') as fp:
+            data = json.load(fp)
+
+        text = preprocessing_data(str(data["behavior"]))
+        df_tmp = pd.DataFrame({'label': label,
+                               'text': text}, index=[i])
+        df = pd.concat([df, df_tmp], ignore_index=True)
+
+    # print(len(df))
+    return df
 
 def preprocessing_data(text):
     return re.sub('[^a-zA-Z0-9,:]','',text).replace(',',' ').replace(':',' ').lower()

@@ -1,12 +1,12 @@
 function read_data(df_labels,PATH_BEN_REPORTS,PATH_MAL_REPORTS)
     jsons = map(df_labels.name,df_labels.label) do n,y
         try
-            if y==1
+            #=if y==1
                 path=PATH_MAL_REPORTS
             elseif y==0
                 path=PATH_BEN_REPORTS
-            end
-            x=open(JSON.parse, "$(path)$(n).json")
+            end =#
+            x=open(JSON.parse, "..\\$(n).json")
             #x=Dict("behavior" => Dict("apistats_opt" => x["behavior"]["apistats_opt"], "summary" => Dict("dll_loaded" => x["behavior"]["summary"]["dll_loaded"]) ))
             #delete!(x["behavior"],"apistats")
             #delete!(x["behavior"],"apistats_opt")
