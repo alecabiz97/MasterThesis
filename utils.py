@@ -43,7 +43,7 @@ def get_label_text_dataframe_dataset1(meta_path):
         with open(f"{filepath}.json", 'r') as fp:
             data = json.load(fp)
 
-        text = preprocessing_data(str(data["behavior"]))
+        text = preprocessing_data(str(data["behavior"]['apistats']))
         df_tmp = pd.DataFrame({'label': label,
                                'text': text}, index=[i])
         df = pd.concat([df, df_tmp], ignore_index=True)

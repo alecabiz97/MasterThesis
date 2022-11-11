@@ -32,8 +32,162 @@ from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score, plot_roc
 import tensorflow as tf
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from utils import get_label_text_dataframe_dataset1,get_label_text_dataframe_avast
+from keras import initializers, regularizers
+from keras import constraints
+from lime import lime_text
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
+
+
+def dot_product(x, kernel):
+    """
+    Wrapper for dot product operation, in order to be compatible with both
+    Theano and Tensorflow
+    Args:
+        x (): input
+        kernel (): weights
+    Returns:
+    """
+    if K.backend() == 'tensorflow':
+        return K.squeeze(K.dot(x, K.expand_dims(kernel)), axis=-1)
+    else:
+        return K.dot(x, kernel)
+
+
+class AttentionWithContext(keras.layers.Layer):
+    """
+    Attention operation, with a context/query vector, for temporal data.
+    Supports Masking.
+    Follows the work of Yang et al. [https://www.cs.cmu.edu/~diyiy/docs/naacl16.pdf]
+    "Hierarchical Attention Networks for Document Classification"
+    by using a context vector to assist the attention
+    # Input shape
+        3D tensor with shape: `(samples, steps, features)`.
+    # Output shape
+        2D tensor with shape: `(samples, features)`.
+    How to use:
+    Just put it on top of an RNN Layer (GRU/LSTM/SimpleRNN) with return_sequences=True.
+    The dimensions are inferred based on the output shape of the RNN.
+    Note: The layer has been tested with Keras 2.0.6
+    Example:
+        model.add(LSTM(64, return_sequences=True))
+        model.add(AttentionWithContext())
+        # next add a Dense layer (for classification/regression) or whatever...
+    """
+
+    def __init__(self,
+                 W_regularizer=None, u_regularizer=None, b_regularizer=None,
+                 W_constraint=None, u_constraint=None, b_constraint=None,
+                 bias=True, **kwargs):
+
+        self.supports_masking = True
+        self.init = initializers.get('glorot_uniform')
+
+        self.W_regularizer = regularizers.get(W_regularizer)
+        self.u_regularizer = regularizers.get(u_regularizer)
+        self.b_regularizer = regularizers.get(b_regularizer)
+
+        self.W_constraint = constraints.get(W_constraint)
+        self.u_constraint = constraints.get(u_constraint)
+        self.b_constraint = constraints.get(b_constraint)
+
+        self.bias = bias
+        super(AttentionWithContext, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        assert len(input_shape) == 3
+
+        self.W = self.add_weight(shape=(input_shape[-1], input_shape[-1],),
+                                 initializer=self.init,
+                                 name='{}_W'.format(self.name),
+                                 regularizer=self.W_regularizer,
+                                 constraint=self.W_constraint)
+        if self.bias:
+            self.b = self.add_weight(shape=(input_shape[-1],),
+                                     initializer='zero',
+                                     name='{}_b'.format(self.name),
+                                     regularizer=self.b_regularizer,
+                                     constraint=self.b_constraint)
+
+        self.u = self.add_weight(shape=(input_shape[-1],),
+                                 initializer=self.init,
+                                 name='{}_u'.format(self.name),
+                                 regularizer=self.u_regularizer,
+                                 constraint=self.u_constraint)
+
+        super(AttentionWithContext, self).build(input_shape)
+
+    def compute_mask(self, input, input_mask=None):
+        # do not pass the mask to the next layers
+        return None
+
+    def call(self, x, mask=None):
+        uit = dot_product(x, self.W)
+
+        if self.bias:
+            uit += self.b
+
+        uit = K.tanh(uit)
+        ait = dot_product(uit, self.u)
+
+        a = K.exp(ait)
+
+        # apply mask after the exp. will be re-normalized next
+        if mask is not None:
+            # Cast the mask to floatX to avoid float64 upcasting in theano
+            a *= K.cast(mask, K.floatx())
+
+        # in some cases especially in the early stages of training the sum may be almost zero
+        # and this results in NaN's. A workaround is to add a very small positive number ε to the sum.
+        # a /= K.cast(K.sum(a, axis=1, keepdims=True), K.floatx())
+        a /= K.cast(K.sum(a, axis=1, keepdims=True) + K.epsilon(), K.floatx())
+
+        a = K.expand_dims(a)
+        weighted_input = x * a
+        return K.sum(weighted_input, axis=1)
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[0], input_shape[-1]
+
+    def get_config(self):
+        config = {
+            "W_regularizer": self.W_regularizer,
+            "u_regularizer": self.u_regularizer,
+            "b_regularizer": self.b_regularizer,
+            "W_constraint": self.W_constraint,
+            "u_constraint": self.u_constraint,
+            "b_constraint": self.b_constraint,
+            "bias": self.bias,
+        }
+        base_config = super().get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+
+class Addition(keras.layers.Layer):
+    """
+    This layer is supposed to add of all activation weight.
+    We split this from AttentionWithContext to help us getting the activation weights
+    follows this equation:
+    (1) v = \sum_t(\alpha_t * h_t)
+
+    # Input shape
+        3D tensor with shape: `(samples, steps, features)`.
+    # Output shape
+        2D tensor with shape: `(samples, features)`.
+    """
+
+    def __init__(self, **kwargs):
+        super(Addition, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        self.output_dim = input_shape[-1]
+        super(Addition, self).build(input_shape)
+
+    def call(self, x):
+        return K.sum(x, axis=1)
+
+    def compute_output_shape(self, input_shape):
+        return (input_shape[0], self.output_dim)
 
 def tokenize_data(x_tr,x_val,x_ts,maxlen):
     tokenizer = Tokenizer(num_words=10000)
@@ -59,6 +213,8 @@ def get_neurlux(vocab_size,EMBEDDING_DIM,MAXLEN,mode,n_classes=None):
     # x = keras.layers.Bidirectional(keras.layers.CuDNNLSTM(64, return_sequences=True))(x)
     x = keras.layers.Bidirectional(keras.layers.CuDNNLSTM(32))(x)
     # x,att_score=keras.layers.Attention(name='attention_vec')([x,x], return_attention_scores=True)
+    # x=AttentionWithContext()(x)
+    # x=Addition(x)
     x = keras.layers.Dense(10, activation="relu")(x)
     x = keras.layers.Dropout(0.25)(x)
 
@@ -78,10 +234,10 @@ def get_neurlux(vocab_size,EMBEDDING_DIM,MAXLEN,mode,n_classes=None):
 if __name__ == '__main__':
 
     # Hyperparameters
-    MAXLEN = 500
-    EMBEDDING_DIM=256
+    MAXLEN = 500 # 500
+    EMBEDDING_DIM=256 # 256
     BATCH_SIZE = 50
-    EPOCHS = 10
+    EPOCHS = 10 # 10
     LEARNING_RATE = 0.0001
     MODE='detection' # 'classification' or 'detection'
 
@@ -94,8 +250,9 @@ if __name__ == '__main__':
         # df = get_label_text_dataframe_avast("Avast\\subset_100.csv")
     elif MODE=='detection':
         classes=["Benign","Malign"]
-        df = pd.read_csv("data.csv")
         # df = get_label_text_dataframe_dataset1("dataset1\\labels_preproc.csv")
+        df = pd.read_csv("data.csv")
+        # df = pd.read_csv("spamdata_v2.csv")
 
     df = df.sample(frac=1) # Shuffle dataset
     df=df.iloc[0:1000, :].reset_index(drop=True) # Subset
@@ -117,7 +274,8 @@ if __name__ == '__main__':
 
     # Model definition
     model=get_neurlux(vocab_size,EMBEDDING_DIM,MAXLEN,mode=MODE,n_classes=n_classes)
-    #print(model.summary())
+    print(model.summary())
+
 
     es = EarlyStopping(monitor = 'val_loss', mode = 'min', verbose = 1, patience = 10)
     mc = ModelCheckpoint('./model.h5', monitor = 'val_accuracy', mode = 'max', verbose = 1, save_best_only = True)
@@ -156,4 +314,32 @@ if __name__ == '__main__':
     plt.title("Confusion matrix")
     plt.tight_layout()
     plt.show()
+
+
+    # %%
+    def predict_proba(sample):
+        x=tokenizer.texts_to_sequences(sample)
+        x = pad_sequences(x, maxlen=MAXLEN, padding='post')
+        if MODE == "classification":
+            scores=model.predict(x)
+        elif MODE == 'detection':
+            scores_tmp = model.predict(x)
+            scores=[]
+            for val in scores_tmp:
+                scores.append([1-val,val[0]])
+            scores=np.array(scores)
+
+        return scores
+
+
+    idx=0
+    sample=x_ts.iloc[idx]
+    y_sample=y_ts.iloc[idx]
+    print(f"Label sample: {classes[y_sample]} {idx}")
+    explainer = lime_text.LimeTextExplainer(class_names=classes)
+    explanation = explainer.explain_instance(sample, classifier_fn=predict_proba, num_features=10,
+                                             labels=[y_sample])
+
+    explanation.save_to_file(f'exp.html')
+    print("Explanation file created")
 
