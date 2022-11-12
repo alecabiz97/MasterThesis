@@ -10,13 +10,14 @@ from tqdm import tqdm
 import json
 
 
-def get_label_text_dataframe_avast(meta_path):
+def get_label_date_text_dataframe_avast(meta_path):
     meta = pd.read_csv(meta_path)
     root = 'Avast\\public_small_reports'
     classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
     df = pd.DataFrame({"label": int(),
+                       "date": str(),
                        "text": str()}, index=[])
-    for i, (sha, family) in enumerate(tqdm(meta[["sha256", "classification_family"]].values)):
+    for i, (sha, family,date) in enumerate(tqdm(meta[["sha256", "classification_family","date"]].values)):
         filepath = f"{root}\\{sha}.json"
         try:
             with open(filepath, 'r') as fp:
@@ -27,6 +28,7 @@ def get_label_text_dataframe_avast(meta_path):
 
             y = classes.index(family)
             df_tmp = pd.DataFrame({'label': y,
+                                   "date": date,
                                    'text': text}, index=[i])
             df = pd.concat([df, df_tmp], ignore_index=True)
             pass
@@ -35,16 +37,24 @@ def get_label_text_dataframe_avast(meta_path):
 
     return df
 
-def get_label_text_dataframe_dataset1(meta_path):
+def get_label_date_text_dataframe_dataset1(meta_path):
     meta = pd.read_csv(meta_path)
     df = pd.DataFrame({"label": int(),
+                       "date": str(),
                        "text": str()}, index=[])
-    for i, (filepath, label) in enumerate(tqdm(meta[['name', 'label']].values)):
+    for i, (filepath, label,date) in enumerate(tqdm(meta[['name', 'label','date']].values)):
         with open(f"{filepath}.json", 'r') as fp:
             data = json.load(fp)
 
-        text = preprocessing_data(str(data["behavior"]['apistats']))
+        d={'apistats':data["behavior"]['apistats'],
+           # 'apistats_opt':data["behavior"]["apistats_opt"],
+           # 'regkey_opened':data["behavior"]["summary"]["regkey_opened"]
+           }
+        # d={'static':data["static"]}
+
+        text = preprocessing_data(str(d))
         df_tmp = pd.DataFrame({'label': label,
+                               "date": date,
                                'text': text}, index=[i])
         df = pd.concat([df, df_tmp], ignore_index=True)
 

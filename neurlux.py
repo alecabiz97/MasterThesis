@@ -31,10 +31,11 @@ import copy
 from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score, plot_roc_curve, classification_report, RocCurveDisplay
 import tensorflow as tf
 from keras.callbacks import EarlyStopping, ModelCheckpoint
-from utils import get_label_text_dataframe_dataset1,get_label_text_dataframe_avast
+from utils import get_label_date_text_dataframe_dataset1,get_label_date_text_dataframe_avast
 from keras import initializers, regularizers
 from keras import constraints
 from lime import lime_text
+from tqdm import tqdm
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -240,18 +241,21 @@ if __name__ == '__main__':
     EPOCHS = 10 # 10
     LEARNING_RATE = 0.0001
     MODE='detection' # 'classification' or 'detection'
+    TYPE_SPLIT='time' # 'time' or 'random'
 
     # Import data
     # df = pd.read_csv("spamdata_v2.csv")
     if MODE=='classification':
+        split_date='2019-08-01'
         classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
         df = pd.read_csv("data_avast_100.csv")
         # df = pd.read_csv("data_avast.csv")
         # df = get_label_text_dataframe_avast("Avast\\subset_100.csv")
     elif MODE=='detection':
+        split_date = "2013-08-09"
         classes=["Benign","Malign"]
-        # df = get_label_text_dataframe_dataset1("dataset1\\labels_preproc.csv")
-        df = pd.read_csv("data.csv")
+        df = get_label_date_text_dataframe_dataset1("dataset1\\labels_preproc.csv")
+        # df = pd.read_csv("data.csv")
         # df = pd.read_csv("spamdata_v2.csv")
 
     df = df.sample(frac=1) # Shuffle dataset
@@ -261,9 +265,14 @@ if __name__ == '__main__':
     print(f"Number of classes: {n_classes}")
 
     # Create training, validation and test set
-    x_tr, x_tmp, y_tr, y_tmp = train_test_split(df['text'], df['label'], random_state=2018, test_size=0.2,stratify=df['label'])
+    if TYPE_SPLIT == 'random':
+        x_tr, x_tmp, y_tr, y_tmp = train_test_split(df['text'], df['label'], random_state=2018, test_size=0.2,stratify=df['label'])
+    elif TYPE_SPLIT == 'time':
+        x_tr,y_tr = df[df['date'] < split_date]['text'],df[df['date'] < split_date]['label']
+        x_tmp,y_tmp = df[df['date'] >= split_date]['text'],df[df['date'] >= split_date]['label']
     x_val, x_ts, y_val, y_ts = train_test_split(x_tmp, y_tmp, random_state=2018,test_size=0.6,stratify=y_tmp)
 
+    print(f"Split train-test: {TYPE_SPLIT}")
     print(f"Train size: {len(y_tr)} -- n_classes:{len(set(y_tr))}")
     print(f"Validation size: {len(y_val)} -- n_classes:{len(set(y_val))}")
     print(f"Test size: {len(y_ts)} -- n_classes:{len(set(y_ts))}")
@@ -274,7 +283,7 @@ if __name__ == '__main__':
 
     # Model definition
     model=get_neurlux(vocab_size,EMBEDDING_DIM,MAXLEN,mode=MODE,n_classes=n_classes)
-    print(model.summary())
+    #print(model.summary())
 
 
     es = EarlyStopping(monitor = 'val_loss', mode = 'min', verbose = 1, patience = 10)
@@ -296,27 +305,21 @@ if __name__ == '__main__':
         RocCurveDisplay.from_predictions(y_ts,scores)
         plt.show()
 
-
     print(classification_report(y_pred, y_ts))
     #print(confusion_matrix(y_ts,y_pred))
 
     # Confusion matrix
     plt.figure(figsize=(10,10))
 
-    ConfusionMatrixDisplay.from_predictions([classes[i] for i in y_ts],
-                                            [classes[i] for i in y_pred],
-                                            normalize='true',
-                                            labels=classes,
-                                            cmap='Blues',
-                                            colorbar=False,
-                                            # values_format=".2g",
-                                            xticks_rotation='vertical')
+    ConfusionMatrixDisplay.from_predictions([classes[i] for i in y_ts],[classes[i] for i in y_pred],normalize='true',
+                                            labels=classes, cmap='Blues',colorbar=False,xticks_rotation='vertical')
     plt.title("Confusion matrix")
     plt.tight_layout()
     plt.show()
 
 
     # %%
+
     def predict_proba(sample):
         x=tokenizer.texts_to_sequences(sample)
         x = pad_sequences(x, maxlen=MAXLEN, padding='post')
@@ -336,10 +339,14 @@ if __name__ == '__main__':
     sample=x_ts.iloc[idx]
     y_sample=y_ts.iloc[idx]
     print(f"Label sample: {classes[y_sample]} {idx}")
-    explainer = lime_text.LimeTextExplainer(class_names=classes)
-    explanation = explainer.explain_instance(sample, classifier_fn=predict_proba, num_features=10,
+    explainer = lime_text.LimeTextExplainer(class_names=classes,verbose=False)
+    explanation = explainer.explain_instance(sample, classifier_fn=predict_proba, num_features=50,
                                              labels=[y_sample])
 
     explanation.save_to_file(f'exp.html')
     print("Explanation file created")
+
+
+
+
 
