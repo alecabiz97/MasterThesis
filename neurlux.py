@@ -1,6 +1,3 @@
-from keras.preprocessing.text import Tokenizer
-from keras.layers import Activation, Permute, RepeatVector, LSTM, Bidirectional, Multiply, Lambda, Dense, Dropout, \
-    Input,Flatten,Embedding
 import warnings
 import IPython
 from sklearn.model_selection import train_test_split
@@ -9,7 +6,6 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 from keras.layers import Activation, Permute, RepeatVector, LSTM, Bidirectional, Multiply, Lambda, Dense, Dropout, \
     Input,Flatten,Embedding,Attention
 from keras.callbacks import History, CSVLogger, ModelCheckpoint, EarlyStopping
-#from keras.engine.topology import Layer, InputSpec
 from keras.models import Model, load_model, Sequential
 from keras.utils import CustomObjectScope
 import keras.backend as K
@@ -36,6 +32,8 @@ from keras import initializers, regularizers
 from keras import constraints
 from lime import lime_text
 from tqdm import tqdm
+import json
+from utils import *
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -238,19 +236,19 @@ if __name__ == '__main__':
     MAXLEN = 500 # 500
     EMBEDDING_DIM=256 # 256
     BATCH_SIZE = 50
-    EPOCHS = 10 # 10
+    EPOCHS = 15 # 10
     LEARNING_RATE = 0.0001
     MODE='detection' # 'classification' or 'detection'
-    TYPE_SPLIT='time' # 'time' or 'random'
+    TYPE_SPLIT='random' # 'time' or 'random'
 
     # Import data
     # df = pd.read_csv("spamdata_v2.csv")
     if MODE=='classification':
         split_date='2019-08-01'
         classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
-        df = pd.read_csv("data_avast_100.csv")
+        # df = pd.read_csv("data_avast_100.csv")
+        df = get_label_date_text_dataframe_avast("Avast\\subset_100.csv")
         # df = pd.read_csv("data_avast.csv")
-        # df = get_label_text_dataframe_avast("Avast\\subset_100.csv")
     elif MODE=='detection':
         split_date = "2013-08-09"
         classes=["Benign","Malign"]
@@ -259,18 +257,18 @@ if __name__ == '__main__':
         # df = pd.read_csv("spamdata_v2.csv")
 
     df = df.sample(frac=1) # Shuffle dataset
-    df=df.iloc[0:1000, :].reset_index(drop=True) # Subset
+    df=df.iloc[0:2000, :].reset_index(drop=True) # Subset
     print(df.head())
     n_classes=len(set(df['label']))
     print(f"Number of classes: {n_classes}")
 
     # Create training, validation and test set
     if TYPE_SPLIT == 'random':
-        x_tr, x_tmp, y_tr, y_tmp = train_test_split(df['text'], df['label'], random_state=2018, test_size=0.2,stratify=df['label'])
+        x_tr, x_tmp, y_tr, y_tmp = train_test_split(df['text'], df['label'], test_size=0.2,stratify=df['label'])
     elif TYPE_SPLIT == 'time':
         x_tr,y_tr = df[df['date'] < split_date]['text'],df[df['date'] < split_date]['label']
         x_tmp,y_tmp = df[df['date'] >= split_date]['text'],df[df['date'] >= split_date]['label']
-    x_val, x_ts, y_val, y_ts = train_test_split(x_tmp, y_tmp, random_state=2018,test_size=0.6,stratify=y_tmp)
+    x_val, x_ts, y_val, y_ts = train_test_split(x_tmp, y_tmp, test_size=0.6,stratify=y_tmp)
 
     print(f"Split train-test: {TYPE_SPLIT}")
     print(f"Train size: {len(y_tr)} -- n_classes:{len(set(y_tr))}")
@@ -281,13 +279,18 @@ if __name__ == '__main__':
     x_tr_tokens,x_val_tokens,x_ts_tokens, vocab_size, tokenizer = tokenize_data(x_tr,x_val,x_ts,maxlen=MAXLEN)
     print(f"Vocab size: {vocab_size}")
 
+    # Save tokenizer
+    with open(f'tokenizer_{MODE}.pickle', 'wb') as fp:
+        pickle.dump(tokenizer, fp)
+
+
     # Model definition
     model=get_neurlux(vocab_size,EMBEDDING_DIM,MAXLEN,mode=MODE,n_classes=n_classes)
     #print(model.summary())
 
 
     es = EarlyStopping(monitor = 'val_loss', mode = 'min', verbose = 1, patience = 10)
-    mc = ModelCheckpoint('./model.h5', monitor = 'val_accuracy', mode = 'max', verbose = 1, save_best_only = True)
+    mc = ModelCheckpoint(f'./model_{MODE}.h5', monitor = 'val_accuracy', mode = 'max', verbose = 1, save_best_only = True)
     print("START TRAINING")
     history_embedding = model.fit(tf.constant(x_tr_tokens),tf.constant(y_tr),
                                   epochs = EPOCHS, batch_size = BATCH_SIZE,
@@ -318,33 +321,7 @@ if __name__ == '__main__':
     plt.show()
 
 
-    # %%
 
-    def predict_proba(sample):
-        x=tokenizer.texts_to_sequences(sample)
-        x = pad_sequences(x, maxlen=MAXLEN, padding='post')
-        if MODE == "classification":
-            scores=model.predict(x)
-        elif MODE == 'detection':
-            scores_tmp = model.predict(x)
-            scores=[]
-            for val in scores_tmp:
-                scores.append([1-val,val[0]])
-            scores=np.array(scores)
-
-        return scores
-
-
-    idx=0
-    sample=x_ts.iloc[idx]
-    y_sample=y_ts.iloc[idx]
-    print(f"Label sample: {classes[y_sample]} {idx}")
-    explainer = lime_text.LimeTextExplainer(class_names=classes,verbose=False)
-    explanation = explainer.explain_instance(sample, classifier_fn=predict_proba, num_features=50,
-                                             labels=[y_sample])
-
-    explanation.save_to_file(f'exp.html')
-    print("Explanation file created")
 
 
 

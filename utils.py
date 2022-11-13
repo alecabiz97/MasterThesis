@@ -24,6 +24,7 @@ def get_label_date_text_dataframe_avast(meta_path):
                 data = json.load(fp)
 
             text = preprocessing_data(str(data["behavior"]))
+            # text = preprocessing_data(str(data["static"]))
             # text=" ".join(data["behavior"]["apistats"])
 
             y = classes.index(family)
@@ -46,11 +47,19 @@ def get_label_date_text_dataframe_dataset1(meta_path):
         with open(f"{filepath}.json", 'r') as fp:
             data = json.load(fp)
 
-        d={'apistats':data["behavior"]['apistats'],
+        # d={'apistats':data["behavior"]['apistats'],
            # 'apistats_opt':data["behavior"]["apistats_opt"],
            # 'regkey_opened':data["behavior"]["summary"]["regkey_opened"]
-           }
+           # }
         # d={'static':data["static"]}
+        d=[
+            data["behavior"]['apistats'],
+            # data["behavior"]["apistats_opt"],
+            data["behavior"]["summary"]["regkey_opened"],
+            data["behavior"]["summary"]["regkey_read"],
+            data["behavior"]["summary"]["dll_loaded"],
+            data["behavior"]["summary"]["mutex"],
+           ]
 
         text = preprocessing_data(str(d))
         df_tmp = pd.DataFrame({'label': label,
@@ -62,8 +71,8 @@ def get_label_date_text_dataframe_dataset1(meta_path):
     return df
 
 def preprocessing_data(text):
-    return re.sub('[^a-zA-Z0-9,:]','',text).replace(',',' ').replace(':',' ').lower()
-
+    # return re.sub('[^a-zA-Z0-9,:]','',text).replace(',',' ').replace(':',' ').lower()
+    return re.sub('[^a-zA-Z0-9,:]', '', text).lower().replace("c:","c").replace(',', ' ').replace(':', ' ')
 
 def plot_history(history):
     for phase in ['Train', 'Val']:
