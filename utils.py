@@ -8,9 +8,37 @@ import matplotlib.pyplot as plt
 import re
 from tqdm import tqdm
 import json
+from sklearn.metrics import ConfusionMatrixDisplay
+from keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 
-def get_label_date_text_dataframe_avast(meta_path):
+
+def tokenize_data(x_tr,x_val,x_ts,maxlen):
+    tokenizer = Tokenizer(num_words=10000)
+
+    tokenizer.fit_on_texts(x_tr.values)
+    x_tr = tokenizer.texts_to_sequences(x_tr)
+    x_tr=pad_sequences(x_tr,maxlen=maxlen,padding='post')
+    vocab_size = len(tokenizer.word_index) + 1
+
+    x_val = tokenizer.texts_to_sequences(x_val.values)
+    x_val = pad_sequences(x_val, maxlen=maxlen, padding='post')
+
+    x_ts = tokenizer.texts_to_sequences(x_ts.values)
+    x_ts = pad_sequences(x_ts, maxlen=maxlen, padding='post')
+    return x_tr,x_val,x_ts, vocab_size, tokenizer
+
+
+def plot_confusion_matrix(y_true,y_pred,classes):
+    plt.figure(figsize=(10, 10))
+
+    ConfusionMatrixDisplay.from_predictions([classes[i] for i in y_true], [classes[i] for i in y_pred], normalize='true',
+                                            labels=classes, cmap='Blues', colorbar=False, xticks_rotation='vertical')
+    plt.title("Confusion matrix")
+    plt.tight_layout()
+    plt.show()
+def get_label_date_text_dataframe_avast(meta_path,feature_maxlen=None):
     meta = pd.read_csv(meta_path)
     root = 'Avast\\public_small_reports'
     classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
@@ -23,7 +51,15 @@ def get_label_date_text_dataframe_avast(meta_path):
             with open(filepath, 'r') as fp:
                 data = json.load(fp)
 
-            text = preprocessing_data(str(data["behavior"]))
+            if feature_maxlen is None:
+                text = preprocessing_data(str(data["behavior"]))
+            else:
+                text=[]
+                for feat in feature_maxlen.keys():
+                    x=data["behavior"]["summary"][feat]
+                    text.append(x[0:min(len(x),feature_maxlen[feat])])
+
+                text = preprocessing_data(str(text))
             # text = preprocessing_data(str(data["static"]))
             # text=" ".join(data["behavior"]["apistats"])
 
@@ -38,7 +74,7 @@ def get_label_date_text_dataframe_avast(meta_path):
 
     return df
 
-def get_label_date_text_dataframe_dataset1(meta_path):
+def get_label_date_text_dataframe_dataset1(meta_path,feature_maxlen):
     meta = pd.read_csv(meta_path)
     df = pd.DataFrame({"label": int(),
                        "date": str(),
@@ -47,21 +83,28 @@ def get_label_date_text_dataframe_dataset1(meta_path):
         with open(f"{filepath}.json", 'r') as fp:
             data = json.load(fp)
 
-        # d={'apistats':data["behavior"]['apistats'],
-           # 'apistats_opt':data["behavior"]["apistats_opt"],
-           # 'regkey_opened':data["behavior"]["summary"]["regkey_opened"]
-           # }
-        # d={'static':data["static"]}
-        d=[
-            data["behavior"]['apistats'],
-            # data["behavior"]["apistats_opt"],
-            data["behavior"]["summary"]["regkey_opened"],
-            data["behavior"]["summary"]["regkey_read"],
-            data["behavior"]["summary"]["dll_loaded"],
-            data["behavior"]["summary"]["mutex"],
-           ]
+        feat=[]
+        if 'apistats' in feature_maxlen.keys():
+            x = data["behavior"]['apistats']
+            feat.append(x[0:min(len(x), feature_maxlen["apistats"])])
+        if 'apistats_opt' in feature_maxlen.keys():
+            x = data["behavior"]["apistats_opt"]
+            feat.append(x[0:min(len(x),feature_maxlen["apistats_opt"])])
+        if 'regkey_opened' in feature_maxlen.keys():
+            x = data["behavior"]["summary"]["regkey_opened"]
+            feat.append(x[0:min(len(x),feature_maxlen["regkey_opened"])])
+        if 'regkey_read' in feature_maxlen.keys():
+            x = data["behavior"]["summary"]["regkey_read"]
+            feat.append(x[0:min(len(x),feature_maxlen["regkey_read"])])
+        if 'dll_loaded' in feature_maxlen.keys():
+            x = data["behavior"]["summary"]["dll_loaded"]
+            feat.append(x[0:min(len(x),feature_maxlen["dll_loaded"])])
+        if 'mutex' in feature_maxlen.keys():
+            x = data["behavior"]["summary"]["mutex"]
+            feat.append(x[0:min(len(x),feature_maxlen["mutex"])])
 
-        text = preprocessing_data(str(d))
+
+        text = preprocessing_data(str(feat))
         df_tmp = pd.DataFrame({'label': label,
                                "date": date,
                                'text': text}, index=[i])

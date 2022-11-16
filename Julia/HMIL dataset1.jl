@@ -59,6 +59,7 @@ api_opt = map(jsons) do j  x = Dict("apistats_opt" => j["behavior"]["apistats_op
 dll = map(jsons) do j  x = Dict("dll_loaded" => j["behavior"]["summary"]["dll_loaded"]) end
 regop = map(jsons) do j  x = Dict("regkey_opened" => j["behavior"]["summary"]["regkey_opened"]) end
 regre = map(jsons) do j x = Dict("regkey_read" => j["behavior"]["summary"]["regkey_read"]) end
+mutex = map(jsons) do j x = Dict("mutex" => j["behavior"]["summary"]["mutex"]) end
 
 api_opt_regre = map(jsons) do j  x = Dict("apistats_opt" => j["behavior"]["apistats_opt"],
                                         "regkey_read" => j["behavior"]["summary"]["regkey_read"]) end
@@ -75,8 +76,8 @@ behavior=map(jsons) do j
 end
 
 
-x = [behavior,static]
-y = ["BEHAVIOR","STATIC"]
+x = [api,api_opt,dll,regop,regre,mutex]
+y = ["apistats","apistats_opt","regkey_opened","regkey_read","dll_loaded","mutex"]
 
 p = plot()
 for (jsons, name) in zip(x, y)
@@ -95,7 +96,7 @@ for (jsons, name) in zip(x, y)
         fsm = Dict("" => k -> Dense(k, n_classes)),
     )
 
-    minibatchsize = 300
+    minibatchsize = 500
     iterations = 200
 
     eval_trainset = shuffle(train_indexes)
