@@ -177,6 +177,7 @@ def plot_confusion_matrix(y_true,y_pred,classes):
     plt.title("Confusion matrix")
     plt.tight_layout()
     plt.show()
+
 def get_label_date_text_dataframe_avast(meta_path,feature_maxlen=None):
     meta = pd.read_csv(meta_path)
     root = 'Avast\\public_small_reports'
@@ -251,6 +252,21 @@ def get_label_date_text_dataframe_dataset1(meta_path,feature_maxlen):
 
     # print(len(df))
     return df
+
+def split_train_val_test_dataframe(df,type_split,split_date=None,tr=0.8):
+    # Create training, validation and test set
+    if type_split == 'random':
+        x_tr, x_tmp, y_tr, y_tmp = train_test_split(df['text'], df['label'], test_size=1-tr, stratify=df['label'])
+    elif type_split == 'time':
+        x_tr, y_tr = df[df['date'] < split_date]['text'], df[df['date'] < split_date]['label']
+        x_tmp, y_tmp = df[df['date'] >= split_date]['text'], df[df['date'] >= split_date]['label']
+    x_val, x_ts, y_val, y_ts = train_test_split(x_tmp, y_tmp, test_size=tr, stratify=y_tmp)
+
+    print(f"Split train-test: {type_split}")
+    print(f"Train size: {len(y_tr)} -- n_classes:{len(set(y_tr))}")
+    print(f"Validation size: {len(y_val)} -- n_classes:{len(set(y_val))}")
+    print(f"Test size: {len(y_ts)} -- n_classes:{len(set(y_ts))}")
+    return x_tr, y_tr, x_val, y_val, x_ts, y_ts
 
 def preprocessing_data(text):
     # return re.sub('[^a-zA-Z0-9,:]','',text).replace(',',' ').replace(':',' ').lower()

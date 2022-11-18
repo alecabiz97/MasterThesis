@@ -45,8 +45,7 @@ def get_neurlux(vocab_size,EMBEDDING_DIM,MAXLEN,with_attention=False):
         return model, None
 
 
-def import_data(subset_n_samples,type_split,feature_maxlen=None):
-    split_date = "2013-08-09"
+def import_data(subset_n_samples,feature_maxlen=None):
     classes = ["Benign", "Malign"]
     df = get_label_date_text_dataframe_dataset1("dataset1\\labels_preproc.csv", feature_maxlen=feature_maxlen)
     # df = pd.read_csv("data.csv")
@@ -57,20 +56,7 @@ def import_data(subset_n_samples,type_split,feature_maxlen=None):
         df = df.iloc[0:subset_n_samples, :].reset_index(drop=True)  # Subset
     print(df.head())
 
-    # Create training, validation and test set
-    if type_split == 'random':
-        x_tr, x_tmp, y_tr, y_tmp = train_test_split(df['text'], df['label'], test_size=0.2, stratify=df['label'])
-    elif type_split == 'time':
-        x_tr, y_tr = df[df['date'] < split_date]['text'], df[df['date'] < split_date]['label']
-        x_tmp, y_tmp = df[df['date'] >= split_date]['text'], df[df['date'] >= split_date]['label']
-    x_val, x_ts, y_val, y_ts = train_test_split(x_tmp, y_tmp, test_size=0.6, stratify=y_tmp)
-
-    print(f"Split train-test: {type_split}")
-    print(f"Train size: {len(y_tr)} -- n_classes:{len(set(y_tr))}")
-    print(f"Validation size: {len(y_val)} -- n_classes:{len(set(y_val))}")
-    print(f"Test size: {len(y_ts)} -- n_classes:{len(set(y_ts))}")
-
-    return x_tr,y_tr,x_val,y_val,x_ts,y_ts,classes
+    return df,classes
 
 
 def lime_explanation(x,x_tokens,y,model,feature_maxlen,classes,num_features,feature_stats=False):
@@ -188,6 +174,7 @@ if __name__ == '__main__':
     EPOCHS = 30 # 10
     LEARNING_RATE = 0.0001
     TYPE_SPLIT='random' # 'time' or 'random'
+    SPLIT_DATE="2013-08-09"
     SUBSET_N_SAMPLES=1000 # if None takes all data
     WITH_ATTENTION=True
 
@@ -197,9 +184,11 @@ if __name__ == '__main__':
     N_SAMPLES_EXP=10
 
     # Import data
-    x_tr, y_tr, x_val, y_val, x_ts, y_ts, classes = import_data(subset_n_samples=SUBSET_N_SAMPLES,
-                                                                type_split=TYPE_SPLIT,feature_maxlen=feature_maxlen)
-    n_classes = len(set(y_tr))
+    df, classes = import_data(subset_n_samples=SUBSET_N_SAMPLES,feature_maxlen=feature_maxlen)
+    n_classes = len(classes)
+
+    # Split Train-Test-Validation
+    x_tr, y_tr, x_val, y_val, x_ts, y_ts= split_train_val_test_dataframe(df, type_split=TYPE_SPLIT, split_date=SPLIT_DATE, tr=0.8)
 
     # Tokenize
     x_tr_tokens, x_val_tokens, x_ts_tokens, vocab_size, tokenizer = tokenize_data(x_tr, x_val, x_ts, maxlen=MAXLEN)
