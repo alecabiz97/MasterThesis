@@ -1,5 +1,5 @@
 import warnings
-from keras.layers import LSTM, Bidirectional, Dense, Dropout, Input,Embedding,Attention,Conv1D,MaxPooling1D,CuDNNLSTM
+from keras.layers import LSTM, Bidirectional, Dense, Dropout, Input,Embedding,Conv1D,MaxPooling1D,CuDNNLSTM
 import pickle
 import keras
 from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score, plot_roc_curve, classification_report, RocCurveDisplay
@@ -10,30 +10,39 @@ from lime import lime_text
 from keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from time import time
-
+from copy import deepcopy
+from keras import constraints, initializers, regularizers
+import keras.backend as K
+from attention import Attention
 
 
 # TF_GPU_ALLOCATOR=cuda_malloc_async
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
-def get_neurlux(vocab_size,EMBEDDING_DIM,MAXLEN):
+def get_neurlux(vocab_size,EMBEDDING_DIM,MAXLEN,with_attention=False):
     inp=Input(shape=(MAXLEN))
     x=Embedding(input_dim=vocab_size, output_dim=EMBEDDING_DIM,input_length=MAXLEN)(inp)
     x = Conv1D(filters=100, kernel_size=4, padding='same', activation='relu')(x)
     x = MaxPooling1D(pool_size=4,data_format="channels_first")(x)
     # x = Bidirectional(CuDNNLSTM(64, return_sequences=True))(x)
-    x = Bidirectional(CuDNNLSTM(32))(x)
-    # x,att_score=Attention(name='attention_vec')([x,x], return_attention_scores=True)
-    # x=AttentionWithContext()(x)
-    # x=Addition(x)
+    if with_attention:
+        x = Bidirectional(CuDNNLSTM(32,return_sequences=True))(x)
+        x, attention_out = AttentionWithContext()(x)
+    else:
+        x = Bidirectional(CuDNNLSTM(32))(x)
+
     x = Dense(10, activation="relu")(x)
     x = Dropout(0.25)(x)
     x = Dense(1, activation="sigmoid")(x)
     model=keras.models.Model(inputs=inp,outputs=x)
-
     model.compile(loss="binary_crossentropy", optimizer='adam', metrics='accuracy')
-    return model
+
+    if with_attention:
+        attention_model = keras.models.Model(inputs=inp, outputs=attention_out)
+        return model,attention_model
+    else:
+        return model, None
 
 
 def import_data(subset_n_samples,type_split,feature_maxlen=None):
@@ -73,7 +82,7 @@ def lime_explanation(x,x_tokens,y,model,feature_maxlen,classes,num_features,feat
         scores_tmp = model.predict(x)
         scores = []
         for val in scores_tmp:
-            scores.append([1 - val, val[0]])
+            scores.append([1 - val[0], val[0]])
         scores = np.array(scores)
 
         return scores
@@ -113,7 +122,6 @@ def lime_explanation(x,x_tokens,y,model,feature_maxlen,classes,num_features,feat
     MAXLEN = sum(feature_maxlen.values())
 
 
-
     if feature_stats:
         meta_path = "dataset1\\labels_preproc.csv"
         stats = get_stats(meta_path)
@@ -123,7 +131,7 @@ def lime_explanation(x,x_tokens,y,model,feature_maxlen,classes,num_features,feat
         cnt_regre = 0
         cnt_dll = 0
         cnt_mutex = 0
-
+    exps=[]
     for idx in range(len(y)):
         sample = x.iloc[idx]
         y_sample = y.iloc[idx]
@@ -133,6 +141,7 @@ def lime_explanation(x,x_tokens,y,model,feature_maxlen,classes,num_features,feat
         print(f"Predicted: {classes[y_pred]}")
         explainer = lime_text.LimeTextExplainer(class_names=classes)
         explanation = explainer.explain_instance(sample, classifier_fn=predict_proba, num_features=num_features, top_labels=1)
+        exps.append(deepcopy(explanation))
 
         explanation.save_to_file(f'exp_{idx}.html')
         print("Explanation file created")
@@ -160,25 +169,32 @@ def lime_explanation(x,x_tokens,y,model,feature_maxlen,classes,num_features,feat
         print(f"DLL: {cnt_dll}")
         print(f"MUTEX: {cnt_mutex}")
 
+    return exps
+
 if __name__ == '__main__':
 
     # Hyperparameters
     feature_maxlen = {
         # "apistats": 200,
-        "apistats_opt": 300,
+        "apistats_opt": 400,
         "regkey_opened": 500,
         "regkey_read": 500,
         "dll_loaded": 200,
-        "mutex": 50
+        # "mutex": 50
     }
     MAXLEN = sum(feature_maxlen.values())
     EMBEDDING_DIM=256 # 256
     BATCH_SIZE = 50
-    EPOCHS = 10 # 10
+    EPOCHS = 30 # 10
     LEARNING_RATE = 0.0001
     TYPE_SPLIT='random' # 'time' or 'random'
     SUBSET_N_SAMPLES=1000 # if None takes all data
-    LIME_EXPLANATION=False
+    WITH_ATTENTION=True
+
+    # Explanation
+    LIME_EXPLANATION = True
+    TOPK_FEATURE=10
+    N_SAMPLES_EXP=10
 
     # Import data
     x_tr, y_tr, x_val, y_val, x_ts, y_ts, classes = import_data(subset_n_samples=SUBSET_N_SAMPLES,
@@ -194,7 +210,7 @@ if __name__ == '__main__':
         pickle.dump(tokenizer, fp)
 
     # Model definition
-    model = get_neurlux(vocab_size, EMBEDDING_DIM, MAXLEN)
+    model,attention_model = get_neurlux(vocab_size, EMBEDDING_DIM, MAXLEN,with_attention=WITH_ATTENTION)
     print(model.summary())
 
     es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=10)
@@ -211,8 +227,9 @@ if __name__ == '__main__':
     print("TEST")
 
     # print(classification_report(y_pred, y_ts))
+    print(f"Train accuracy: {model.evaluate(x_tr_tokens, np.array(y_tr), verbose=False)[1]}")
     print(f"Test accuracy: {model.evaluate(x_ts_tokens, np.array(y_ts),verbose=False)[1]}")
-    print(f"Train accuracy: {model.evaluate(x_tr_tokens, np.array(y_tr),verbose=False)[1]}")
+
     # print(confusion_matrix(y_ts,y_pred))
 
     scores=model.predict(tf.constant(x_ts_tokens),verbose=False).squeeze()
@@ -232,11 +249,33 @@ if __name__ == '__main__':
 
     # LIME Explanation
     if LIME_EXPLANATION:
-        x=x_ts[0:1]
-        x_tokens=x_ts_tokens[0:1]
-        y=y_ts[0:1]
-        lime_explanation(x=x,x_tokens=x_tokens,y=y,model=model,feature_maxlen=feature_maxlen,
-                         classes=classes,num_features=10,feature_stats=False)
+        x=x_ts[0:N_SAMPLES_EXP]
+        x_tokens=x_ts_tokens[0:N_SAMPLES_EXP]
+        y=y_ts[0:N_SAMPLES_EXP]
+
+        explanations = lime_explanation(x=x, x_tokens=x_tokens, y=y, model=model, feature_maxlen=feature_maxlen,
+                                        classes=classes, num_features=TOPK_FEATURE, feature_stats=False)
+
+        # top_feat_lime=[val[0] for val in explanation.as_list(label=explanation.available_labels()[0])]
+        top_feat_lime = [[val[0] for val in exp.as_list(label=exp.available_labels()[0])] for exp in explanations]
+
+
+        # Attention
+        if WITH_ATTENTION:
+            top_feat_att=get_top_feature_attention(attention_model,tokenizer,x_tokens,topk=TOPK_FEATURE)
+
+
+            for i in range(N_SAMPLES_EXP):
+                cnt = 0
+                for val in top_feat_att[i]:
+                    if val in top_feat_lime[i]:
+                        #print(val)
+                        cnt += 1
+                print(f"[Sample {i}] Common feature Attention/LIME: {cnt}/{TOPK_FEATURE}")
+
+
+
+
 
 # %%
 
@@ -306,6 +345,9 @@ if __name__ == '__main__':
 # plt.hist(x6)
 # plt.title('MUTEX')
 # plt.show()
+
+
+
 
 
 

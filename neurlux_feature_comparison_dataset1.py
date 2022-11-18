@@ -13,6 +13,7 @@ if __name__ == '__main__':
     LEARNING_RATE = 0.0001
     TYPE_SPLIT = 'random'  # 'time' or 'random'
     SUBSET_N_SAMPLES = 1000 # if None takes all data
+    WITH_ATTENTION = True
 
     feature_maxlen = [
         {"apistats": 500},
@@ -38,7 +39,7 @@ if __name__ == '__main__':
 
 
         # Model definition
-        model = get_neurlux(vocab_size, EMBEDDING_DIM, MAXLEN)
+        model,_ = get_neurlux(vocab_size, EMBEDDING_DIM, MAXLEN,with_attention=WITH_ATTENTION)
         # print(model.summary())
 
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=10)

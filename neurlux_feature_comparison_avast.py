@@ -7,12 +7,12 @@ from neurlux_classification import get_neurlux, tokenize_data, import_data
 if __name__ == '__main__':
     # Hyperparameters
     EMBEDDING_DIM = 256  # 256
-    BATCH_SIZE = 100
-    EPOCHS = 10  # 10
+    BATCH_SIZE = 50
+    EPOCHS = 20  # 10
     LEARNING_RATE = 0.0001
     TYPE_SPLIT = 'random'  # 'time' or 'random'
     SUBSET_N_SAMPLES = 1000 # if None takes all data
-
+    WITH_ATTENTION = False
 
     feature_maxlen = [
         {'keys': 500},
@@ -25,7 +25,8 @@ if __name__ == '__main__':
         {'delete_keys': 500},
         {'read_keys': 500},
         {'delete_files': 500},
-        {'mutexes': 500}
+        {'mutexes': 500},
+        # {'keys': 500,'resolved_apis': 500,'read_keys': 500,'files': 500},
     ]
     test_acc = []
     train_acc = []
@@ -43,7 +44,7 @@ if __name__ == '__main__':
 
 
         # Model definition
-        model = get_neurlux(vocab_size, EMBEDDING_DIM, MAXLEN,n_classes=n_classes)
+        model,_ = get_neurlux(vocab_size, EMBEDDING_DIM, MAXLEN,n_classes=n_classes,with_attention=WITH_ATTENTION)
         # print(model.summary())
 
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=10)
