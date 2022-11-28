@@ -2,7 +2,8 @@ import warnings
 from keras.layers import LSTM, Bidirectional, Dense, Dropout, Input,Embedding,Conv1D,MaxPooling1D,CuDNNLSTM
 import pickle
 import keras
-from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score, plot_roc_curve, classification_report, RocCurveDisplay
+from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score, plot_roc_curve,\
+    classification_report, RocCurveDisplay, DetCurveDisplay
 import tensorflow as tf
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from utils import *
@@ -161,17 +162,17 @@ if __name__ == '__main__':
 
     # Hyperparameters
     feature_maxlen = {
-        # "apistats": 200,
-        "apistats_opt": 400,
-        "regkey_opened": 500,
-        "regkey_read": 500,
+        # "apistats": 500,
+        "apistats_opt": 500,
+        # "regkey_opened": 500,
+        # "regkey_read": 500,
         "dll_loaded": 200,
         # "mutex": 50
     }
     MAXLEN = sum(feature_maxlen.values())
     EMBEDDING_DIM=256 # 256
     BATCH_SIZE = 50
-    EPOCHS = 30 # 10
+    EPOCHS = 15 # 30
     LEARNING_RATE = 0.0001
     TYPE_SPLIT='random' # 'time' or 'random'
     SPLIT_DATE="2013-08-09"
@@ -179,7 +180,7 @@ if __name__ == '__main__':
     WITH_ATTENTION=True
 
     # Explanation
-    LIME_EXPLANATION = True
+    LIME_EXPLANATION = False
     TOPK_FEATURE=10
     N_SAMPLES_EXP=10
 
@@ -224,13 +225,29 @@ if __name__ == '__main__':
     scores=model.predict(tf.constant(x_ts_tokens),verbose=False).squeeze()
     y_pred=scores.round().astype(int)
 
-    # ROC curve
-    auc=roc_auc_score(y_ts,scores)
-    print(f"AUC: {auc}")
-    fpr, tpr, thresh=roc_curve(y_ts,scores)
-    plt.plot(fpr,tpr,label=f'AUC = {round(auc,2)})')
-    plt.legend()
+    #fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+    # Plot ROC and DET curves
+
+    RocCurveDisplay.from_predictions(y_ts, scores,name="Neurlux")
+    plt.title("Receiver Operating Characteristic (ROC) curves")
+    plt.grid(linestyle="--")
+    plt.legend(loc='lower right')
     plt.show()
+
+
+    DetCurveDisplay.from_predictions(y_ts, scores,name="Neurlux")
+    plt.title("Detection Error Tradeoff (DET) curves")
+    plt.grid(linestyle="--")
+    plt.legend(loc='upper right')
+    plt.show()
+
+    # ROC curve
+    # auc=roc_auc_score(y_ts,scores)
+    # print(f"AUC: {auc}")
+    # fpr, tpr, thresh=roc_curve(y_ts,scores)
+    # plt.plot(fpr,tpr,label=f'AUC = {round(auc,2)})')
+    # plt.legend()
+    # plt.show()
     # RocCurveDisplay.from_predictions(y_ts,scores)
 
     # Confusion matrix

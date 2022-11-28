@@ -260,7 +260,7 @@ def split_train_val_test_dataframe(df,type_split,split_date=None,tr=0.8):
     elif type_split == 'time':
         x_tr, y_tr = df[df['date'] < split_date]['text'], df[df['date'] < split_date]['label']
         x_tmp, y_tmp = df[df['date'] >= split_date]['text'], df[df['date'] >= split_date]['label']
-    x_val, x_ts, y_val, y_ts = train_test_split(x_tmp, y_tmp, test_size=tr, stratify=y_tmp)
+    x_val, x_ts, y_val, y_ts = train_test_split(x_tmp, y_tmp, test_size=0.6, stratify=y_tmp)
 
     print(f"Split train-test: {type_split}")
     print(f"Train size: {len(y_tr)} -- n_classes:{len(set(y_tr))}")

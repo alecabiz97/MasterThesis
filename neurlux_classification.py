@@ -164,7 +164,7 @@ if __name__ == '__main__':
     BATCH_SIZE = 40
     EPOCHS = 30 # 10
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT='random' # 'time' or 'random'
+    TYPE_SPLIT='time' # 'time' or 'random'
     SPLIT_DATE = '2019-08-01'
     SUBSET_N_SAMPLES=1000 # if None takes all data
     WITH_ATTENTION = True
