@@ -19,10 +19,18 @@ using Plots
 using Printf
 using ROC: roc, AUC
 using Distributions: quantile, Normal
-
+using BSON: @save, @load
+Random.seed!(1234)
 THREADS = Threads.nthreads()
-PATH_BEN_REPORTS,PATH_MAL_REPORTS = "../dataset1/ben_preproc/","../dataset1/mal_preproc/"
-PATH_TO_LABELS = "../dataset1/labels_preproc.csv";
+
+# Hyperparameters
+PATH_BEN_REPORTS,PATH_MAL_REPORTS = "../data/dataset1/ben_preproc/","../data/dataset1/mal_preproc/"
+PATH_TO_LABELS = "../data/dataset1/labels_preproc.csv";
+epochs = 5 # 5
+split_choose="random" # 'time' or 'random'
+minibatchsize = 50 # 50
+iterations = 200 # 200
+training=false # If true training the models, if false load the trained model
 
 df = CSV.read(PATH_TO_LABELS, DataFrame);
 
@@ -42,7 +50,6 @@ println("N samples: $(n_samples)")
 println("N labels: $(n_classes)")
 @assert n_samples == length(df_labels.label)
 
-split_choose="time" # 'time' or 'random'
 if split_choose =="time"
     train_indexes,test_indexes=time_split(n_samples,"2013-08-09")
 elseif split_choose =="random"
@@ -79,22 +86,24 @@ behavior=map(jsons) do j
 end
 
 
-x = [behavior,api,api_opt,regop,regre,dll,mutex]
-y = ["All","API","API OPT","Regkey Opened","Regkey Read","DLL Loaded","Mutex"]
+features = [behavior,api,api_opt,regop,regre,dll,mutex]
+features_names = ["All","API","API_OPT","Regkey_Opened","Regkey_Read","DLL_Loaded","Mutex"]
 
-#x = [behavior,api,api_opt,dll]
-#y = ["All","API","API OPT","DLL"]
+#features = [api,api_opt]
+#features_names = ["API","API_OPT"]
 
 #p = plot()
 p1=plot(title="Receiver Operating Characteristic")
 p2=plot(title="Detection Error Tradeoff")
 colors=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2"]
 global j=1
-for (jsons, name) in zip(x, y)
+test_acc = []
+train_acc = []
+for (jsons, name) in zip(features, features_names)
 
     # Select scheme
     data,complete_schema,extractor=select_schema(jsons,train_indexes,THREADS)
-    printtree(data[1])
+    #printtree(data[1])
 
     # Create model
     labelnames = sort(unique(df_labels.label))
@@ -107,51 +116,52 @@ for (jsons, name) in zip(x, y)
         fsm = Dict("" => k -> Dense(k, n_classes)),
     )
 
-    minibatchsize = 50 # 50
-    iterations = 200 # 200
+    if training
+        eval_trainset = shuffle(train_indexes)
+        eval_testset = shuffle(test_indexes)
 
-    eval_trainset = shuffle(train_indexes)
-    eval_testset = shuffle(test_indexes)
+        ps = Flux.params(model)
+        loss = (x, y) -> Flux.logitcrossentropy(model(x), y)
+        opt = ADAM()
 
-    ps = Flux.params(model)
-    loss = (x, y) -> Flux.logitcrossentropy(model(x), y)
-    opt = ADAM()
-
-    function minibatch()
-        idx = StatsBase.sample(train_indexes, minibatchsize, replace = false)
-        reduce(catobs, data[idx]),  Flux.onehotbatch(df_labels.label[idx], labelnames)
-    end
-
-    function calculate_accuracy(x, y)
-        vals = tmap(x) do s
-            Flux.onecold(softmax(model(s)), labelnames)[1]
-        end
-        mean(vals .== y)
-    end
-
-    cb = () -> begin
-            train_acc = calculate_accuracy(data[eval_trainset],df_labels.label[eval_trainset])
-            test_acc = calculate_accuracy(data[eval_testset],df_labels.label[eval_testset])
-            println("accuracy: train = $train_acc, test = $test_acc")
+        function minibatch()
+            idx = StatsBase.sample(train_indexes, minibatchsize, replace = false)
+            reduce(catobs, data[idx]),  Flux.onehotbatch(df_labels.label[idx], labelnames)
         end
 
-    epochs = 5 # 5
-    for i = 1:epochs
-        println("Epoch $(i)")
-        Flux.Optimise.train!(loss,ps,repeatedly(minibatch, iterations),opt,cb = Flux.throttle(cb, 2))
+        cb = () -> begin
+                train_acc = calculate_accuracy(model,data[eval_trainset],df_labels.label[eval_trainset],labelnames)
+                test_acc = calculate_accuracy(model,data[eval_testset],df_labels.label[eval_testset],labelnames)
+                println("  accuracy: train = $train_acc, test = $test_acc")
+            end
+
+        
+        for i = 1:epochs
+            println("Epoch $(i)")
+            Flux.Optimise.train!(loss,ps,repeatedly(minibatch, iterations),opt,cb = Flux.throttle(cb, 2))
+        end
+        # Save model
+        @save "./trained_models/dataset1/JsonGrinder_detection_$(name)_$(split_choose).bson" model
+    else
+        # Load model
+        @load "./trained_models/dataset1/JsonGrinder_detection_$(name)_$(split_choose).bson" model
     end
 
-    full_train_accuracy = calculate_accuracy(data[train_indexes], df_labels.label[train_indexes])
-    full_test_accuracy = calculate_accuracy(data[test_indexes], df_labels.label[test_indexes])
-    println("Final evaluation:")
-    println("Accuratcy on train data: $(full_train_accuracy)")
-    println("Accuratcy on test data: $(full_test_accuracy)")
+    full_train_accuracy = calculate_accuracy(model,data[train_indexes], df_labels.label[train_indexes],labelnames)
+    full_test_accuracy = calculate_accuracy(model,data[test_indexes], df_labels.label[test_indexes],labelnames)
+
+    #println("\nFinal evaluation ($(name)):")
+    #println("Accuratcy on train data: $(full_train_accuracy)")
+    #println("Accuratcy on test data: $(full_test_accuracy)")
+
+    append!(train_acc,full_train_accuracy)
+    append!(test_acc,full_test_accuracy)
 
     scores = softmax(model(data[test_indexes]))[2, :]
     roc_curve = roc(scores, df_labels.label[test_indexes], true)
 
     auc=AUC(roc_curve)
-    println("AUC: $auc")
+    #println("AUC: $auc")
     #plot!(p, roc_curve, lw = 3, label = "$name -- AUC: $(round(auc,digits = 3))")
     
     # ROC
@@ -183,4 +193,11 @@ p3=plot(p1,p2,layout=(1,2),size=(1100,400),dpi=400,lw=2,
     left_margin = 5Plots.mm, right_margin = 5Plots.mm, up_margin=5Plots.mm,  bottom_margin=5Plots.mm
 )
 display(p3)
-savefig("jsonGrinder_$split_choose.pdf")
+savefig("JsonGrinder_$split_choose.pdf")
+
+println("\nFinal evaluation")
+for i in 1:length(features_names)
+    println("$(features_names[i])")
+    println("  Train acc: $(train_acc[i])")
+    println("  Test acc: $(test_acc[i])")
+end

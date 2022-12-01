@@ -8,12 +8,14 @@ if __name__ == '__main__':
     # Hyperparameters
     EMBEDDING_DIM = 256  # 256
     BATCH_SIZE = 50
-    EPOCHS = 20  # 10
+    EPOCHS = 30  # 10
     LEARNING_RATE = 0.0001
     TYPE_SPLIT = 'random'  # 'time' or 'random'
     SPLIT_DATE='2019-08-01'
-    SUBSET_N_SAMPLES = 1000 # if None takes all data
-    WITH_ATTENTION = False
+    SUBSET_N_SAMPLES = 1000
+    WITH_ATTENTION = True
+    TRAINING = False  # If True training the models, if False load the trained model
+    meta_path = "..\\data\\Avast\\subset_100.csv"
 
     feature_maxlen = [
         {'keys': 500},
@@ -32,10 +34,14 @@ if __name__ == '__main__':
     test_acc = []
     train_acc = []
 
-    for feat in feature_maxlen:
+    names=[list(x.keys())[0] for x in feature_maxlen]
+    model_names = [f"neurlux_avast_{n}_{EPOCHS}_{TYPE_SPLIT}.h5" for n in names]
+
+    for feat, name,model_name in zip(feature_maxlen, names,model_names):
         MAXLEN=sum(feat.values())
+
         # Import data
-        df, classes = import_data(subset_n_samples=SUBSET_N_SAMPLES, feature_maxlen=feature_maxlen)
+        df, classes = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES, feature_maxlen=feat)
         n_classes = len(classes)
 
         # Split Train-Test-Validation
@@ -50,13 +56,16 @@ if __name__ == '__main__':
         model,_ = get_neurlux(vocab_size, EMBEDDING_DIM, MAXLEN,n_classes=n_classes,with_attention=WITH_ATTENTION)
         # print(model.summary())
 
-        es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=10)
-        mc = ModelCheckpoint(f'./model.h5', monitor='val_accuracy', mode='max', verbose=1, save_best_only=True)
-        print("START TRAINING")
-        history_embedding = model.fit(tf.constant(x_tr_tokens), tf.constant(y_tr),
-                                      epochs=EPOCHS, batch_size=BATCH_SIZE,
-                                      validation_data=(tf.constant(x_val_tokens), tf.constant(y_val)),
-                                      verbose=1, callbacks=[es, mc])
+        if TRAINING:
+            es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=10)
+            mc = ModelCheckpoint(f"./trained_models/avast/{model_name}", monitor='val_accuracy', mode='max', verbose=1, save_best_only=True)
+            print("START TRAINING")
+            history_embedding = model.fit(tf.constant(x_tr_tokens), tf.constant(y_tr),
+                                          epochs=EPOCHS, batch_size=BATCH_SIZE,
+                                          validation_data=(tf.constant(x_val_tokens), tf.constant(y_val)),
+                                          verbose=1, callbacks=[es, mc])
+        else:
+            model.load_weights(f"./trained_models/avast/{model_name}")
 
         # Test
         print("TEST")

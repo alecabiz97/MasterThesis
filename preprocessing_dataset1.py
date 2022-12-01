@@ -42,8 +42,8 @@ def opt_api(d):
     return apis
 
 if __name__ == '__main__':
-    benign_root = 'dataset1\\ben_reports'
-    malign_root = 'dataset1\\mal_reports'
+    benign_root = 'data\\dataset1\\ben_reports'
+    malign_root = 'data\\dataset1\\mal_reports'
 
     ben_files = getListOfFiles(benign_root)
     mal_files = getListOfFiles(malign_root)
@@ -82,7 +82,7 @@ if __name__ == '__main__':
                     label = 0 if filepath.split("\\")[-2] == 'ben_reports' else 1  # 0 -> benign , 1 -> malign
                     date = data['static']['pe_timestamp'].split(" ")[0]
 
-                    p = "dataset1\\ben_preproc\\" if label == 0 else "dataset1\\mal_preproc\\"
+                    p = "data\\dataset1\\ben_preproc\\" if label == 0 else "dataset1\\mal_preproc\\"
 
                     json_object = json.dumps(d, indent=4)
                     with open(f"{p}{name}.json", "w") as outfile:
@@ -105,7 +105,7 @@ if __name__ == '__main__':
 
     print(s1)
     print(s2)
-    df.to_csv(f'dataset1\\labels_preproc.csv', index=False)
+    df.to_csv(f'data\\dataset1\\labels_preproc.csv', index=False)
 
 
 

@@ -180,7 +180,7 @@ def plot_confusion_matrix(y_true,y_pred,classes):
 
 def get_label_date_text_dataframe_avast(meta_path,feature_maxlen=None):
     meta = pd.read_csv(meta_path)
-    root = 'Avast\\public_small_reports'
+    root = '..\\data\\Avast\\public_small_reports'
     classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
     df = pd.DataFrame({"label": int(),
                        "date": str(),
@@ -220,7 +220,7 @@ def get_label_date_text_dataframe_dataset1(meta_path,feature_maxlen):
                        "date": str(),
                        "text": str()}, index=[])
     for i, (filepath, label,date) in enumerate(tqdm(meta[['name', 'label','date']].values)):
-        with open(f"{filepath}.json", 'r') as fp:
+        with open(f"..\\data\\{filepath}.json", 'r') as fp:
             data = json.load(fp)
 
         feat=[]
@@ -253,14 +253,14 @@ def get_label_date_text_dataframe_dataset1(meta_path,feature_maxlen):
     # print(len(df))
     return df
 
-def split_train_val_test_dataframe(df,type_split,split_date=None,tr=0.8):
+def split_train_val_test_dataframe(df,type_split,split_date=None,tr=0.8,random_state=10):
     # Create training, validation and test set
     if type_split == 'random':
-        x_tr, x_tmp, y_tr, y_tmp = train_test_split(df['text'], df['label'], test_size=1-tr, stratify=df['label'])
+        x_tr, x_tmp, y_tr, y_tmp = train_test_split(df['text'], df['label'], test_size=1-tr, stratify=df['label'],random_state=random_state)
     elif type_split == 'time':
         x_tr, y_tr = df[df['date'] < split_date]['text'], df[df['date'] < split_date]['label']
         x_tmp, y_tmp = df[df['date'] >= split_date]['text'], df[df['date'] >= split_date]['label']
-    x_val, x_ts, y_val, y_ts = train_test_split(x_tmp, y_tmp, test_size=0.6, stratify=y_tmp)
+    x_val, x_ts, y_val, y_ts = train_test_split(x_tmp, y_tmp, test_size=0.6, stratify=y_tmp,random_state=random_state)
 
     print(f"Split train-test: {type_split}")
     print(f"Train size: {len(y_tr)} -- n_classes:{len(set(y_tr))}")

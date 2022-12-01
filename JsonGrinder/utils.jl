@@ -1,3 +1,10 @@
+function calculate_accuracy(model,x, y,labelnames)
+    vals = tmap(x) do s
+        Flux.onecold(softmax(model(s)), labelnames)[1]
+    end
+    mean(vals .== y)
+end
+
 function read_data(df_labels,PATH_BEN_REPORTS,PATH_MAL_REPORTS)
     jsons = map(df_labels.name,df_labels.label) do n,y
         try
@@ -6,7 +13,7 @@ function read_data(df_labels,PATH_BEN_REPORTS,PATH_MAL_REPORTS)
             elseif y==0
                 path=PATH_BEN_REPORTS
             end =#
-            x=open(JSON.parse, "..\\$(n).json")
+            x=open(JSON.parse, "..\\data\\$(n).json")
             #x=Dict("behavior" => Dict("apistats_opt" => x["behavior"]["apistats_opt"], "summary" => Dict("dll_loaded" => x["behavior"]["summary"]["dll_loaded"]) ))
             #delete!(x["behavior"],"apistats")
             #delete!(x["behavior"],"apistats_opt")

@@ -46,13 +46,11 @@ def get_neurlux(vocab_size,EMBEDDING_DIM,MAXLEN,n_classes=None,with_attention=Fa
         return model, None
 
 
-def import_data(subset_n_samples,feature_maxlen=None):
+def import_data(meta_path,subset_n_samples,feature_maxlen=None):
     classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
-    # df = pd.read_csv("data_avast_100.csv")
-    df = get_label_date_text_dataframe_avast("Avast\\subset_100.csv",feature_maxlen=feature_maxlen)
-    # df = pd.read_csv("data_avast.csv")
+    df = get_label_date_text_dataframe_avast(meta_path,feature_maxlen=feature_maxlen)
 
-    df = df.sample(frac=1)  # Shuffle dataset
+    df = df.sample(frac=1,random_state=10)  # Shuffle dataset
     if subset_n_samples:
         df = df.iloc[0:subset_n_samples, :].reset_index(drop=True)  # Subset
     print(df.head())
@@ -70,7 +68,7 @@ def lime_explanation(x,x_tokens,y,model,feature_maxlen,classes,num_features,feat
 
     def get_stats(meta_path):
         meta = pd.read_csv(meta_path)
-        root = 'Avast\\public_small_reports'
+        root = 'data\\Avast\\public_small_reports'
 
         stats = {
             'keys': set(),
@@ -104,7 +102,7 @@ def lime_explanation(x,x_tokens,y,model,feature_maxlen,classes,num_features,feat
 
 
     if feature_stats:
-        meta_path = "Avast\\subset_100.csv"
+        meta_path = "data\\Avast\\subset_100.csv"
         stats = get_stats(meta_path)
         feature_importance={k:0 for k in stats.keys()}
 
@@ -162,20 +160,23 @@ if __name__ == '__main__':
 
     EMBEDDING_DIM=256 # 256
     BATCH_SIZE = 40
-    EPOCHS = 30 # 10
+    EPOCHS = 15 # 10
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT='time' # 'time' or 'random'
+    TYPE_SPLIT='random' # 'time' or 'random'
     SPLIT_DATE = '2019-08-01'
     SUBSET_N_SAMPLES=1000 # if None takes all data
     WITH_ATTENTION = True
+    TRAINING = False
+    meta_path = "..\\data\\Avast\\subset_100.csv"
+    model_name = "Neurlux_Avast"
 
     # Explanation
     LIME_EXPLANATION = False
     TOPK_FEATURE = 10
-    N_SAMPLES_EXP = 10
+    N_SAMPLES_EXP = 1
 
     # Import data
-    df, classes = import_data(subset_n_samples=SUBSET_N_SAMPLES,feature_maxlen=feature_maxlen)
+    df, classes = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES,feature_maxlen=feature_maxlen)
     n_classes = len(classes)
 
     # Split Train-Test-Validation
@@ -186,21 +187,22 @@ if __name__ == '__main__':
     x_tr_tokens, x_val_tokens, x_ts_tokens, vocab_size, tokenizer = tokenize_data(x_tr, x_val, x_ts, maxlen=MAXLEN)
     print(f"Vocab size: {vocab_size}")
 
-    # Save tokenizer
-    with open(f'tokenizer_classification.pickle', 'wb') as fp:
-        pickle.dump(tokenizer, fp)
 
     # Model definition
     model,attention_model = get_neurlux(vocab_size, EMBEDDING_DIM, MAXLEN, n_classes=n_classes,with_attention=WITH_ATTENTION)
     print(model.summary())
 
-    es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=10)
-    mc = ModelCheckpoint(f'./model_classification.h5', monitor='val_accuracy', mode='max', verbose=1, save_best_only=True)
-    print("START TRAINING")
-    history_embedding = model.fit(tf.constant(x_tr_tokens), tf.constant(y_tr),
-                                  epochs=EPOCHS, batch_size=BATCH_SIZE,
-                                  validation_data=(tf.constant(x_val_tokens), tf.constant(y_val)),
-                                  verbose=1, callbacks=[es, mc])
+    if TRAINING:
+        es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=10)
+        mc = ModelCheckpoint(f"./trained_models/avast/{model_name}.h5", monitor='val_accuracy', mode='max', verbose=1, save_best_only=True)
+        print("START TRAINING")
+        history_embedding = model.fit(tf.constant(x_tr_tokens), tf.constant(y_tr),
+                                      epochs=EPOCHS, batch_size=BATCH_SIZE,
+                                      validation_data=(tf.constant(x_val_tokens), tf.constant(y_val)),
+                                      verbose=1, callbacks=[es, mc])
+    else:
+        model.load_weights(f"./trained_models/avast/{model_name}.h5")
+
 
     #Test
     print("TEST")
@@ -209,7 +211,6 @@ if __name__ == '__main__':
     print(f"Train accuracy: {model.evaluate(x_tr_tokens, np.array(y_tr),verbose=False)[1]}")
     print(f"Test accuracy: {model.evaluate(x_ts_tokens, np.array(y_ts),verbose=False)[1]}")
     # print(confusion_matrix(y_ts,y_pred))
-
 
     y_pred = np.argmax(model.predict(tf.constant(x_ts_tokens)), axis=1)
 

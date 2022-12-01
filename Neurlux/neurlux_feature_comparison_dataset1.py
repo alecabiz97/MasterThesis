@@ -16,6 +16,8 @@ if __name__ == '__main__':
     SPLIT_DATE = "2013-08-09"
     SUBSET_N_SAMPLES = None  # if None takes all data
     WITH_ATTENTION = True
+    TRAINING=False # If True training the models, if False load the trained model
+    meta_path="..\\data\\dataset1\\labels_preproc.csv"
 
     feature_maxlen = [
         {"apistats": 500,"apistats_opt": 500,"regkey_opened": 500,"regkey_read": 500,"dll_loaded": 500,"mutex": 500},
@@ -27,23 +29,24 @@ if __name__ == '__main__':
         {"mutex": 500},
     ]
 
-    # names = ['API', 'API OPT','DLL']
-    names=['All','API','API OPT','Regkey Opened','Regkey Read','DLL Loaded','Mutex']
+    # names = ["API","API_OPT"]
+    names=['All','API','API_OPT','Regkey_Opened','Regkey_Read','DLL_Loaded','Mutex']
+
+    model_names = [f"neurlux_detection_{n}_{EPOCHS}_{TYPE_SPLIT}.h5" for n in names]
     test_acc = []
     train_acc = []
 
     fig, axs = plt.subplots(1, 2, figsize=(15, 5))
-    for feat, name in zip(feature_maxlen, names):
+    for feat, name,model_name in zip(feature_maxlen, names,model_names):
         MAXLEN = sum(feat.values())
 
         # Import data
-        df, classes = import_data(subset_n_samples=SUBSET_N_SAMPLES, feature_maxlen=feat)
+        df, classes = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES, feature_maxlen=feat)
         n_classes = len(classes)
 
         # Split Train-Test-Validation
         x_tr, y_tr, x_val, y_val, x_ts, y_ts = split_train_val_test_dataframe(df, type_split=TYPE_SPLIT,
                                                                               split_date=SPLIT_DATE, tr=0.8)
-
         # Tokenize
         x_tr_tokens, x_val_tokens, x_ts_tokens, vocab_size, tokenizer = tokenize_data(x_tr, x_val, x_ts, maxlen=MAXLEN)
         print(f"Vocab size: {vocab_size}")
@@ -52,13 +55,16 @@ if __name__ == '__main__':
         model, _ = get_neurlux(vocab_size, EMBEDDING_DIM, MAXLEN, with_attention=WITH_ATTENTION)
         # print(model.summary())
 
-        es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=10)
-        mc = ModelCheckpoint(f'./model.h5', monitor='val_accuracy', mode='max', verbose=1, save_best_only=True)
-        print("START TRAINING")
-        history_embedding = model.fit(tf.constant(x_tr_tokens), tf.constant(y_tr),
-                                      epochs=EPOCHS, batch_size=BATCH_SIZE,
-                                      validation_data=(tf.constant(x_val_tokens), tf.constant(y_val)),
-                                      verbose=1, callbacks=[es, mc])
+        if TRAINING:
+            es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=10)
+            mc = ModelCheckpoint(f'./trained_models/dataset1/{model_name}', monitor='val_accuracy', mode='max', verbose=1, save_best_only=True)
+            print("START TRAINING")
+            history_embedding = model.fit(tf.constant(x_tr_tokens), tf.constant(y_tr),
+                                          epochs=EPOCHS, batch_size=BATCH_SIZE,
+                                          validation_data=(tf.constant(x_val_tokens), tf.constant(y_val)),
+                                          verbose=1, callbacks=[es, mc])
+        else:
+            model.load_weights(f"./trained_models/dataset1/{model_name}")
 
         # Test
         print("TEST")
@@ -85,8 +91,9 @@ if __name__ == '__main__':
     axs[1].grid(linestyle="--")
     axs[0].legend(loc='lower right')
     axs[1].legend(loc='upper right')
-    plt.savefig(f"figure/Neurlux_Roc_Det_Epochs_{EPOCHS}_Split_{TYPE_SPLIT}.pdf")
+    plt.suptitle(f"Neurlux Epochs: {EPOCHS} Split: {TYPE_SPLIT}")
     plt.legend()
+    plt.savefig(f"../figure/Neurlux_Roc_Det_Epochs_{EPOCHS}_Split_{TYPE_SPLIT}.pdf")
     plt.show()
 
     # %%
@@ -94,5 +101,9 @@ if __name__ == '__main__':
         print(" ".join(feature_maxlen[i].keys()))
         print(f"    Train acc: {round(train_acc[i], 2)}")
         print(f"    Test acc: {round(test_acc[i], 2)}")
+
+
+
+
 
 

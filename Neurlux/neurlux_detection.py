@@ -46,13 +46,13 @@ def get_neurlux(vocab_size,EMBEDDING_DIM,MAXLEN,with_attention=False):
         return model, None
 
 
-def import_data(subset_n_samples,feature_maxlen=None):
+def import_data(meta_path,subset_n_samples,feature_maxlen=None):
     classes = ["Benign", "Malign"]
-    df = get_label_date_text_dataframe_dataset1("dataset1\\labels_preproc.csv", feature_maxlen=feature_maxlen)
+    df = get_label_date_text_dataframe_dataset1(meta_path=meta_path, feature_maxlen=feature_maxlen)
     # df = pd.read_csv("data.csv")
     # df = pd.read_csv("spamdata_v2.csv")
 
-    df = df.sample(frac=1)  # Shuffle dataset
+    df = df.sample(frac=1, random_state=10)  # Shuffle dataset
     if subset_n_samples:
         df = df.iloc[0:subset_n_samples, :].reset_index(drop=True)  # Subset
     print(df.head())
@@ -110,7 +110,7 @@ def lime_explanation(x,x_tokens,y,model,feature_maxlen,classes,num_features,feat
 
 
     if feature_stats:
-        meta_path = "dataset1\\labels_preproc.csv"
+        meta_path = "data\\dataset1\\labels_preproc.csv"
         stats = get_stats(meta_path)
         cnt_api = 0
         cnt_api_opt = 0
@@ -166,7 +166,7 @@ if __name__ == '__main__':
         "apistats_opt": 500,
         # "regkey_opened": 500,
         # "regkey_read": 500,
-        "dll_loaded": 200,
+        # "dll_loaded": 200,
         # "mutex": 50
     }
     MAXLEN = sum(feature_maxlen.values())
@@ -178,6 +178,9 @@ if __name__ == '__main__':
     SPLIT_DATE="2013-08-09"
     SUBSET_N_SAMPLES=1000 # if None takes all data
     WITH_ATTENTION=True
+    TRAINING=True
+    meta_path="..\\data\\dataset1\\labels_preproc.csv"
+    model_name="Neurlux_detection"
 
     # Explanation
     LIME_EXPLANATION = False
@@ -185,7 +188,7 @@ if __name__ == '__main__':
     N_SAMPLES_EXP=10
 
     # Import data
-    df, classes = import_data(subset_n_samples=SUBSET_N_SAMPLES,feature_maxlen=feature_maxlen)
+    df, classes = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES,feature_maxlen=feature_maxlen)
     n_classes = len(classes)
 
     # Split Train-Test-Validation
@@ -196,22 +199,24 @@ if __name__ == '__main__':
     print(f"Vocab size: {vocab_size}")
 
     # Save tokenizer
-    with open(f'tokenizer_detection.pickle', 'wb') as fp:
-        pickle.dump(tokenizer, fp)
+    #with open(f'tokenizer_detection.pickle', 'wb') as fp:
+    #    pickle.dump(tokenizer, fp)
 
     # Model definition
     model,attention_model = get_neurlux(vocab_size, EMBEDDING_DIM, MAXLEN,with_attention=WITH_ATTENTION)
     print(model.summary())
 
-    es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=10)
-    mc = ModelCheckpoint(f'./model_detection.h5', monitor='val_accuracy', mode='max', verbose=1, save_best_only=True)
-    print("START TRAINING")
+    if TRAINING:
+        es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=10)
+        mc = ModelCheckpoint(f'./trained_models/dataset1/{model_name}.h5', monitor='val_accuracy', mode='max', verbose=1, save_best_only=True)
+        print("START TRAINING")
 
-    history_embedding = model.fit(tf.constant(x_tr_tokens), tf.constant(y_tr),
-                                  epochs=EPOCHS, batch_size=BATCH_SIZE,
-                                  validation_data=(tf.constant(x_val_tokens), tf.constant(y_val)),
-                                  verbose=1, callbacks=[es, mc])
-
+        history_embedding = model.fit(tf.constant(x_tr_tokens), tf.constant(y_tr),
+                                      epochs=EPOCHS, batch_size=BATCH_SIZE,
+                                      validation_data=(tf.constant(x_val_tokens), tf.constant(y_val)),
+                                      verbose=1, callbacks=[es, mc])
+    else:
+        model.load_weights(f"./trained_models/dataset1/{model_name}.h5")
 
     #Test
     print("TEST")
@@ -234,21 +239,11 @@ if __name__ == '__main__':
     plt.legend(loc='lower right')
     plt.show()
 
-
     DetCurveDisplay.from_predictions(y_ts, scores,name="Neurlux")
     plt.title("Detection Error Tradeoff (DET) curves")
     plt.grid(linestyle="--")
     plt.legend(loc='upper right')
     plt.show()
-
-    # ROC curve
-    # auc=roc_auc_score(y_ts,scores)
-    # print(f"AUC: {auc}")
-    # fpr, tpr, thresh=roc_curve(y_ts,scores)
-    # plt.plot(fpr,tpr,label=f'AUC = {round(auc,2)})')
-    # plt.legend()
-    # plt.show()
-    # RocCurveDisplay.from_predictions(y_ts,scores)
 
     # Confusion matrix
     plot_confusion_matrix(y_true=y_ts, y_pred=y_pred, classes=classes)
@@ -285,7 +280,7 @@ if __name__ == '__main__':
 
 # %%
 
-# meta = pd.read_csv("dataset1\\labels_preproc.csv")
+# meta = pd.read_csv("data\\dataset1\\labels_preproc.csv")
 # x1,x2,x3,x4,x5,x6=[],[],[],[],[],[]
 #
 # for i, (filepath, label,date) in enumerate(tqdm(meta[['name', 'label','date']].values)):
