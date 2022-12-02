@@ -12,9 +12,179 @@ from sklearn.metrics import ConfusionMatrixDisplay
 from keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import keras
-from keras import constraints, initializers, regularizers
+from keras import constraints, initializers, regularizers, layers
 import keras.backend as K
 import tensorflow as tf
+from lime import lime_text
+from copy import deepcopy
+
+
+
+# LIME
+def lime_explanation_avast(x,x_tokens,y,model,tokenizer,feature_maxlen,classes,num_features,feature_stats=False):
+
+    def predict_proba(sample):
+        x = tokenizer.texts_to_sequences(sample)
+        x = pad_sequences(x, maxlen=MAXLEN, padding='post')
+        scores = model.predict(x)
+
+        return scores
+
+    MAXLEN = sum(feature_maxlen.values())
+
+    if feature_stats:
+        with open("../data/Avast/Avast_feature_set.json", "r") as fp:
+            feature_set=json.load(fp)
+        feature_importance={k:0 for k in feature_set.keys()}
+
+    exps = []
+    for idx in range(len(y)):
+        sample = x.iloc[idx]
+        y_sample = y.iloc[idx]
+        # print(f"Idx: {idx}")
+        y_pred = np.argmax(model.predict(tf.constant([x_tokens[idx]])).squeeze())
+        print(f"Label sample: {classes[y_sample]}")
+        print(f"Predicted: {classes[y_pred]}")
+        explainer = lime_text.LimeTextExplainer(class_names=classes)
+        explanation = explainer.explain_instance(sample, classifier_fn=predict_proba, num_features=num_features, top_labels=1)
+        exps.append(deepcopy(explanation))
+
+        explanation.save_to_file(f'exp_{idx}.html')
+        print("Explanation file created")
+
+        if feature_stats:
+            for val, importance in explanation.as_list(label=explanation.available_labels()[0]):
+                for k in feature_set.keys():
+                    if val in feature_set[k]:
+                        feature_importance[k] += 1
+
+    if feature_stats:
+        for k, val in feature_importance.items():
+            print(f'{k}: {val}')
+
+    return exps
+
+def lime_explanation_dataset1(x,x_tokens,y,model,tokenizer,feature_maxlen,classes,num_features,feature_stats=False):
+
+    def predict_proba(sample):
+        x = tokenizer.texts_to_sequences(sample)
+        x = pad_sequences(x, maxlen=MAXLEN, padding='post')
+
+        scores_tmp = model.predict(x)
+        scores = []
+        for val in scores_tmp:
+            scores.append([1 - val[0], val[0]])
+        scores = np.array(scores)
+
+        return scores
+
+    MAXLEN = sum(feature_maxlen.values())
+
+    if feature_stats:
+        with open("../data/dataset1/dataset1_feature_set.json", "r") as fp:
+            feature_set = json.load(fp)
+        cnt_api = 0
+        cnt_api_opt = 0
+        cnt_regop = 0
+        cnt_regre = 0
+        cnt_dll = 0
+        cnt_mutex = 0
+    exps=[]
+    for idx in range(len(y)):
+        sample = x.iloc[idx]
+        y_sample = y.iloc[idx]
+        # print(f"Idx: {idx}")
+        y_pred = model.predict(tf.constant([x_tokens[idx]])).squeeze().round().astype(int)
+        print(f"Label sample: {classes[y_sample]}")
+        print(f"Predicted: {classes[y_pred]}")
+        explainer = lime_text.LimeTextExplainer(class_names=classes)
+        explanation = explainer.explain_instance(sample, classifier_fn=predict_proba, num_features=num_features, top_labels=1)
+        exps.append(deepcopy(explanation))
+
+        explanation.save_to_file(f'exp_{idx}.html')
+        print("Explanation file created")
+
+        if feature_stats:
+            for val, importance in explanation.as_list(label=explanation.available_labels()[0]):
+                if val in feature_set["apistats"]:
+                    cnt_api += 1
+                elif val in feature_set["apistats_opt"]:
+                    cnt_api_opt += 1
+                elif val in feature_set["regkey_opened"]:
+                    cnt_regop += 1
+                elif val in feature_set["regkey_read"]:
+                    cnt_regre += 1
+                elif val in feature_set["dll_loaded"]:
+                    cnt_dll += 1
+                elif val in feature_set["mutex"]:
+                    cnt_mutex += 1
+
+    if feature_stats:
+        print(f"API: {cnt_api}")
+        print(f"API OPT: {cnt_api_opt}")
+        print(f"REGOP: {cnt_regop}")
+        print(f"REGRE: {cnt_regre}")
+        print(f"DLL: {cnt_dll}")
+        print(f"MUTEX: {cnt_mutex}")
+
+    return exps
+
+
+# Transformer layers
+class TransformerBlock(layers.Layer):
+    def __init__(self, embed_dim, num_heads, ff_dim, rate=0.1):
+        super(TransformerBlock, self).__init__()
+        self.att = layers.MultiHeadAttention(num_heads=num_heads, key_dim=embed_dim)
+        self.ffn = keras.Sequential(
+            [layers.Dense(ff_dim, activation="relu"), layers.Dense(embed_dim), ]
+        )
+        self.layernorm1 = layers.LayerNormalization(epsilon=1e-6)
+        self.layernorm2 = layers.LayerNormalization(epsilon=1e-6)
+        self.dropout1 = layers.Dropout(rate)
+        self.dropout2 = layers.Dropout(rate)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "att": self.att,
+            "ffn": self.ffn,
+            "layernorm1": self.layernorm1,
+            "layernorm2": self.layernorm2,
+            "dropout1": self.dropout1,
+            "dropout2": self.dropout2,
+        })
+        return config
+
+    def call(self, inputs, training):
+        attn_output = self.att(inputs, inputs)
+        attn_output = self.dropout1(attn_output, training=training)
+        out1 = self.layernorm1(inputs + attn_output)
+        ffn_output = self.ffn(out1)
+        ffn_output = self.dropout2(ffn_output, training=training)
+        return self.layernorm2(out1 + ffn_output)
+
+
+class TokenAndPositionEmbedding(layers.Layer):
+    def __init__(self, maxlen, vocab_size, embed_dim):
+        super(TokenAndPositionEmbedding, self).__init__()
+        self.token_emb = layers.Embedding(input_dim=vocab_size, output_dim=embed_dim)
+        self.pos_emb = layers.Embedding(input_dim=maxlen, output_dim=embed_dim)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "token_emb": self.token_emb,
+            "pos_emb": self.pos_emb,
+        })
+        return config
+
+    def call(self, x):
+        maxlen = tf.shape(x)[-1]
+        positions = tf.range(start=0, limit=maxlen, delta=1)
+        positions = self.pos_emb(positions)
+        x = self.token_emb(x)
+        return x + positions
+
 
 
 def get_top_feature_attention(attention_model,tokenizer, x_tokens, topk=10):

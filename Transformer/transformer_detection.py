@@ -1,41 +1,31 @@
 import warnings
-from keras.layers import LSTM, Bidirectional, Dense, Dropout, Input,Embedding,Conv1D,MaxPooling1D,CuDNNLSTM
-import pickle
-import keras
 from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score, plot_roc_curve,\
     classification_report, RocCurveDisplay, DetCurveDisplay
 import tensorflow as tf
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from utils import *
 
+from keras import layers
+
 
 # TF_GPU_ALLOCATOR=cuda_malloc_async
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
-def get_neurlux(vocab_size,EMBEDDING_DIM,MAXLEN,with_attention=False):
-    inp=Input(shape=(MAXLEN))
-    x=Embedding(input_dim=vocab_size, output_dim=EMBEDDING_DIM,input_length=MAXLEN)(inp)
-    x = Conv1D(filters=100, kernel_size=4, padding='same', activation='relu')(x)
-    x = MaxPooling1D(pool_size=4,data_format="channels_first")(x)
-    # x = Bidirectional(CuDNNLSTM(64, return_sequences=True))(x)
-    if with_attention:
-        x = Bidirectional(CuDNNLSTM(32,return_sequences=True))(x)
-        x, attention_out = AttentionWithContext()(x)
-    else:
-        x = Bidirectional(CuDNNLSTM(32))(x)
-
-    x = Dense(10, activation="relu")(x)
-    x = Dropout(0.25)(x)
-    x = Dense(1, activation="sigmoid")(x)
-    model=keras.models.Model(inputs=inp,outputs=x)
-    model.compile(loss="binary_crossentropy", optimizer='adam', metrics='accuracy')
-
-    if with_attention:
-        attention_model = keras.models.Model(inputs=inp, outputs=attention_out)
-        return model,attention_model
-    else:
-        return model, None
+def get_transformer_model(MAXLEN,vocab_size,EMBEDDING_DIM=256,num_heads=2,ff_dim=32):
+    # Transformer (funziona)
+    inp = layers.Input(shape=(MAXLEN,))
+    x = TokenAndPositionEmbedding(MAXLEN, vocab_size, EMBEDDING_DIM)(inp)
+    # x = layers.Embedding(input_dim=vocab_size, output_dim=EMBEDDING_DIM, input_length=MAXLEN)(inp)
+    x= TransformerBlock(EMBEDDING_DIM, num_heads, ff_dim)(x)
+    x = layers.GlobalAveragePooling1D()(x)
+    x = layers.Dropout(0.1)(x)
+    x = layers.Dense(20, activation="relu")(x)
+    x = layers.Dropout(0.1)(x)
+    outputs = layers.Dense(1, activation="sigmoid")(x)
+    model = keras.Model(inputs=inp, outputs=outputs)
+    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
+    return model
 
 
 if __name__ == '__main__':
@@ -57,10 +47,9 @@ if __name__ == '__main__':
     TYPE_SPLIT='random' # 'time' or 'random'
     SPLIT_DATE="2013-08-09"
     SUBSET_N_SAMPLES=1000 # if None takes all data
-    WITH_ATTENTION=True
     TRAINING=False
     meta_path="..\\data\\dataset1\\labels_preproc.csv"
-    model_name="Neurlux_detection"
+    model_name="Transformer_detection"
     classes = ["Benign", "Malign"]
 
 
@@ -86,7 +75,7 @@ if __name__ == '__main__':
     #    pickle.dump(tokenizer, fp)
 
     # Model definition
-    model,attention_model = get_neurlux(vocab_size, EMBEDDING_DIM, MAXLEN,with_attention=WITH_ATTENTION)
+    model = get_transformer_model(MAXLEN, vocab_size, EMBEDDING_DIM)
     print(model.summary())
 
     if TRAINING:
@@ -144,93 +133,55 @@ if __name__ == '__main__':
         # top_feat_lime=[val[0] for val in explanation.as_list(label=explanation.available_labels()[0])]
         top_feat_lime = [[val[0] for val in exp.as_list(label=exp.available_labels()[0])] for exp in explanations]
 
-
-        # Attention
-        if WITH_ATTENTION:
-            top_feat_att=get_top_feature_attention(attention_model,tokenizer,x_tokens,topk=TOPK_FEATURE)
-
-
-            for i in range(N_SAMPLES_EXP):
-                cnt = 0
-                for val in top_feat_att[i]:
-                    if val in top_feat_lime[i]:
-                        #print(val)
-                        cnt += 1
-                print(f"[Sample {i}] Common feature Attention/LIME: {cnt}/{TOPK_FEATURE}")
-
-
-
-
-
-# %%
-
-# meta = pd.read_csv("data\\dataset1\\labels_preproc.csv")
-# x1,x2,x3,x4,x5,x6=[],[],[],[],[],[]
+# %% Create a json file with dataset1 feature set
+# def get_feature_set(meta_path):
+#     meta = pd.read_csv(meta_path)
 #
-# for i, (filepath, label,date) in enumerate(tqdm(meta[['name', 'label','date']].values)):
-#     with open(f"{filepath}.json", 'r') as fp:
-#         data = json.load(fp)
-#     a=data['behavior']['apistats_opt']
-#     # tokenizer = Tokenizer(num_words=10000)
-#     # tokenizer.fit_on_texts(a)
-#     # b = tokenizer.texts_to_sequences(a)
-#     x1.append(len(data["behavior"]['apistats']))
-#     x2.append(len(data["behavior"]["apistats_opt"]))
-#     x3.append(len(data["behavior"]["summary"]["regkey_opened"]))
-#     x4.append(len(data["behavior"]["summary"]["regkey_read"]))
-#     x5.append(len(data["behavior"]["summary"]["dll_loaded"]))
-#     x6.append(len(data["behavior"]["summary"]["mutex"]))
+#     feature_set = {"apistats": set(),
+#              "apistats_opt": set(),
+#              "regkey_opened": set(),
+#              "regkey_read": set(),
+#              "dll_loaded": set(),
+#              "mutex": set()}
+#     for i, (filepath, label) in enumerate(tqdm(meta[['name', 'label']].values)):
+#         with open(f"data\\{filepath}.json", 'r') as fp:
+#             data = json.load(fp)
 #
+#         x = [preprocessing_data(val) for val in data["behavior"]["apistats"]]
+#         feature_set["apistats"].update(x)
 #
+#         x = [preprocessing_data(val) for val in data["behavior"]["apistats_opt"]]
+#         feature_set["apistats_opt"].update(x)
 #
-# print("API")
-# print(np.min(x1))
-# print(np.max(x1))
-# print(np.mean(x1))
-# plt.hist(x1)
-# plt.title('API')
-# plt.show()
+#         x = [preprocessing_data(val) for val in data["behavior"]["summary"]["regkey_opened"]]
+#         feature_set["regkey_opened"].update(x)
 #
-# print("API OPT")
-# print(np.min(x2))
-# print(np.max(x2))
-# print(np.mean(x2))
-# plt.hist(x2)
-# plt.title('API OPT')
-# plt.show()
+#         x = [preprocessing_data(val) for val in data["behavior"]["summary"]["regkey_read"]]
+#         feature_set["regkey_read"].update(x)
 #
-# print("REGOP")
-# print(np.min(x3))
-# print(np.max(x3))
-# print(np.mean(x3))
-# plt.hist(x3)
-# plt.title('REGOP')
-# plt.show()
+#         x = [preprocessing_data(val) for val in data["behavior"]["summary"]["dll_loaded"]]
+#         feature_set["dll_loaded"].update(x)
 #
-# print("REGRE")
-# print(np.min(x4))
-# print(np.max(x4))
-# print(np.mean(x4))
-# plt.hist(x4)
-# plt.title('REGRE')
-# plt.show()
+#         x = [preprocessing_data(val) for val in data["behavior"]["summary"]["mutex"]]
+#         feature_set["mutex"].update(x)
+#     return feature_set
 #
-# print("DLL")
-# print(np.min(x5))
-# print(np.max(x5))
-# print(np.mean(x5))
-# plt.hist(x5)
-# plt.title('DLL')
-# plt.show()
+# meta_path = "data\\dataset1\\labels_preproc.csv"
+# s=get_feature_set(meta_path)
 #
-# print("MUTEX")
-# print(np.min(x6))
-# print(np.max(x6))
-# print(np.mean(x6))
-# plt.hist(x6)
-# plt.title('MUTEX')
-# plt.show()
-
+# for k in s.keys():
+#     s[k]=list(s[k])
+#     print(f"{k}: {len(s[k])}")
+#
+# json_object = json.dumps(s, indent=3)
+# with open("dataset1_feature_set.json","w") as fp:
+#     fp.write(json_object)
+#
+# with open("dataset1_feature_set.json","r") as fp:
+#     s2=json.load(fp)
+#
+# for k in s2.keys():
+#     print(f"{k}: {len(s2[k])}")
 
 
 
