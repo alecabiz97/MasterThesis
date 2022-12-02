@@ -253,6 +253,18 @@ def get_label_date_text_dataframe_dataset1(meta_path,feature_maxlen):
     # print(len(df))
     return df
 
+def import_data(callback,classes,meta_path,subset_n_samples,feature_maxlen=None):
+    df = callback(meta_path,feature_maxlen=feature_maxlen)
+
+    df = df.sample(frac=1,random_state=10)  # Shuffle dataset
+    if subset_n_samples:
+        df = df.iloc[0:subset_n_samples, :].reset_index(drop=True)  # Subset
+    print(df.head())
+
+    return df, classes
+
+
+
 def split_train_val_test_dataframe(df,type_split,split_date=None,tr=0.8,random_state=10):
     # Create training, validation and test set
     if type_split == 'random':

@@ -4,7 +4,7 @@ from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score, det_curv
 import tensorflow as tf
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from utils import *
-from neurlux_detection import get_neurlux, tokenize_data, import_data
+from neurlux_detection import get_neurlux
 
 if __name__ == '__main__':
     # Hyperparameters
@@ -18,6 +18,8 @@ if __name__ == '__main__':
     WITH_ATTENTION = True
     TRAINING=False # If True training the models, if False load the trained model
     meta_path="..\\data\\dataset1\\labels_preproc.csv"
+    classes = ["Benign", "Malign"]
+
 
     feature_maxlen = [
         {"apistats": 500,"apistats_opt": 500,"regkey_opened": 500,"regkey_read": 500,"dll_loaded": 500,"mutex": 500},
@@ -41,7 +43,8 @@ if __name__ == '__main__':
         MAXLEN = sum(feat.values())
 
         # Import data
-        df, classes = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES, feature_maxlen=feat)
+        df, classes = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES, feature_maxlen=feat,
+                                  callback=get_label_date_text_dataframe_dataset1,classes=classes)
         n_classes = len(classes)
 
         # Split Train-Test-Validation
@@ -93,7 +96,7 @@ if __name__ == '__main__':
     axs[1].legend(loc='upper right')
     plt.suptitle(f"Neurlux Epochs: {EPOCHS} Split: {TYPE_SPLIT}")
     plt.legend()
-    plt.savefig(f"../figure/Neurlux_Roc_Det_Epochs_{EPOCHS}_Split_{TYPE_SPLIT}.pdf")
+    # plt.savefig(f"../figure/Neurlux_Roc_Det_Epochs_{EPOCHS}_Split_{TYPE_SPLIT}.pdf")
     plt.show()
 
     # %%

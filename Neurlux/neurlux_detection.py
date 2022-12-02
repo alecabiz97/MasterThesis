@@ -46,20 +46,6 @@ def get_neurlux(vocab_size,EMBEDDING_DIM,MAXLEN,with_attention=False):
         return model, None
 
 
-def import_data(meta_path,subset_n_samples,feature_maxlen=None):
-    classes = ["Benign", "Malign"]
-    df = get_label_date_text_dataframe_dataset1(meta_path=meta_path, feature_maxlen=feature_maxlen)
-    # df = pd.read_csv("data.csv")
-    # df = pd.read_csv("spamdata_v2.csv")
-
-    df = df.sample(frac=1, random_state=10)  # Shuffle dataset
-    if subset_n_samples:
-        df = df.iloc[0:subset_n_samples, :].reset_index(drop=True)  # Subset
-    print(df.head())
-
-    return df,classes
-
-
 def lime_explanation(x,x_tokens,y,model,feature_maxlen,classes,num_features,feature_stats=False):
 
     def predict_proba(sample):
@@ -178,9 +164,11 @@ if __name__ == '__main__':
     SPLIT_DATE="2013-08-09"
     SUBSET_N_SAMPLES=1000 # if None takes all data
     WITH_ATTENTION=True
-    TRAINING=True
+    TRAINING=False
     meta_path="..\\data\\dataset1\\labels_preproc.csv"
     model_name="Neurlux_detection"
+    classes = ["Benign", "Malign"]
+
 
     # Explanation
     LIME_EXPLANATION = False
@@ -188,7 +176,8 @@ if __name__ == '__main__':
     N_SAMPLES_EXP=10
 
     # Import data
-    df, classes = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES,feature_maxlen=feature_maxlen)
+    df, classes = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES,feature_maxlen=feature_maxlen,
+                              callback=get_label_date_text_dataframe_dataset1,classes=classes)
     n_classes = len(classes)
 
     # Split Train-Test-Validation

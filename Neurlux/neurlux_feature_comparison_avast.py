@@ -1,14 +1,14 @@
 import tensorflow as tf
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from utils import *
-from neurlux_classification import get_neurlux, tokenize_data, import_data
+from neurlux_classification import get_neurlux
 
 
 if __name__ == '__main__':
     # Hyperparameters
     EMBEDDING_DIM = 256  # 256
     BATCH_SIZE = 50
-    EPOCHS = 30  # 10
+    EPOCHS = 15  # 10
     LEARNING_RATE = 0.0001
     TYPE_SPLIT = 'random'  # 'time' or 'random'
     SPLIT_DATE='2019-08-01'
@@ -16,6 +16,8 @@ if __name__ == '__main__':
     WITH_ATTENTION = True
     TRAINING = False  # If True training the models, if False load the trained model
     meta_path = "..\\data\\Avast\\subset_100.csv"
+    classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
+
 
     feature_maxlen = [
         {'keys': 500},
@@ -41,7 +43,8 @@ if __name__ == '__main__':
         MAXLEN=sum(feat.values())
 
         # Import data
-        df, classes = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES, feature_maxlen=feat)
+        df, classes = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES, feature_maxlen=feat,
+                                  callback = get_label_date_text_dataframe_avast, classes = classes)
         n_classes = len(classes)
 
         # Split Train-Test-Validation

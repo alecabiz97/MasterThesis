@@ -45,18 +45,6 @@ def get_neurlux(vocab_size,EMBEDDING_DIM,MAXLEN,n_classes=None,with_attention=Fa
     else:
         return model, None
 
-
-def import_data(meta_path,subset_n_samples,feature_maxlen=None):
-    classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
-    df = get_label_date_text_dataframe_avast(meta_path,feature_maxlen=feature_maxlen)
-
-    df = df.sample(frac=1,random_state=10)  # Shuffle dataset
-    if subset_n_samples:
-        df = df.iloc[0:subset_n_samples, :].reset_index(drop=True)  # Subset
-    print(df.head())
-
-    return df, classes
-
 def lime_explanation(x,x_tokens,y,model,feature_maxlen,classes,num_features,feature_stats=False):
 
     def predict_proba(sample):
@@ -169,6 +157,8 @@ if __name__ == '__main__':
     TRAINING = False
     meta_path = "..\\data\\Avast\\subset_100.csv"
     model_name = "Neurlux_Avast"
+    classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
+
 
     # Explanation
     LIME_EXPLANATION = False
@@ -176,7 +166,8 @@ if __name__ == '__main__':
     N_SAMPLES_EXP = 1
 
     # Import data
-    df, classes = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES,feature_maxlen=feature_maxlen)
+    df, classes = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES,feature_maxlen=feature_maxlen,
+                              callback=get_label_date_text_dataframe_avast,classes=classes)
     n_classes = len(classes)
 
     # Split Train-Test-Validation
