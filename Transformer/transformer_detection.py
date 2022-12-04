@@ -105,13 +105,13 @@ if __name__ == '__main__':
     #fig, axs = plt.subplots(1, 2, figsize=(15, 5))
     # Plot ROC and DET curves
 
-    RocCurveDisplay.from_predictions(y_ts, scores,name="Neurlux")
+    RocCurveDisplay.from_predictions(y_ts, scores,name="Transformer")
     plt.title("Receiver Operating Characteristic (ROC) curves")
     plt.grid(linestyle="--")
     plt.legend(loc='lower right')
     plt.show()
 
-    DetCurveDisplay.from_predictions(y_ts, scores,name="Neurlux")
+    DetCurveDisplay.from_predictions(y_ts, scores,name="Transformer")
     plt.title("Detection Error Tradeoff (DET) curves")
     plt.grid(linestyle="--")
     plt.legend(loc='upper right')

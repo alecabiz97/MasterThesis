@@ -52,20 +52,20 @@ if __name__ == '__main__':
     MAXLEN = sum(feature_maxlen.values())
     EMBEDDING_DIM=256 # 256
     BATCH_SIZE = 50
-    EPOCHS = 15 # 30
+    EPOCHS = 2 # 30
     LEARNING_RATE = 0.0001
     TYPE_SPLIT='random' # 'time' or 'random'
     SPLIT_DATE="2013-08-09"
-    SUBSET_N_SAMPLES=1000 # if None takes all data
+    SUBSET_N_SAMPLES=25 # if None takes all data
     WITH_ATTENTION=True
-    TRAINING=False
+    TRAINING=True
     meta_path="..\\data\\dataset1\\labels_preproc.csv"
     model_name="Neurlux_detection"
     classes = ["Benign", "Malign"]
 
 
     # Explanation
-    LIME_EXPLANATION = True
+    LIME_EXPLANATION = False
     TOPK_FEATURE=10
     N_SAMPLES_EXP=1
 
