@@ -32,29 +32,31 @@ if __name__ == '__main__':
 
     # Hyperparameters
     feature_maxlen = {
-        # "apistats": 500,
-        "apistats_opt": 500,
+        "apistats": 200,
+        # "apistats_opt": 200,
         # "regkey_opened": 500,
         # "regkey_read": 500,
-        # "dll_loaded": 200,
-        # "mutex": 50
+        # "dll_loaded": 120,
+        # "mutex": 100
     }
+
     MAXLEN = sum(feature_maxlen.values())
     EMBEDDING_DIM=256 # 256
     BATCH_SIZE = 50
-    EPOCHS = 15 # 30
+    EPOCHS = 1 # 30
     LEARNING_RATE = 0.0001
     TYPE_SPLIT='random' # 'time' or 'random'
-    SPLIT_DATE="2013-08-09"
-    SUBSET_N_SAMPLES=1000 # if None takes all data
-    TRAINING=False
+    SPLIT_DATE_TR_TS = "2013-08-09"
+    SPLIT_DATE_TR_VAL = "2012-12-09"
+    SUBSET_N_SAMPLES=None # if None takes all data
+    TRAINING=True
     meta_path="..\\data\\dataset1\\labels_preproc.csv"
     model_name="Transformer_detection"
     classes = ["Benign", "Malign"]
 
 
     # Explanation
-    LIME_EXPLANATION = True
+    LIME_EXPLANATION = False
     TOPK_FEATURE=10
     N_SAMPLES_EXP=1
 
@@ -64,7 +66,8 @@ if __name__ == '__main__':
     n_classes = len(classes)
 
     # Split Train-Test-Validation
-    x_tr, y_tr, x_val, y_val, x_ts, y_ts= split_train_val_test_dataframe(df, type_split=TYPE_SPLIT, split_date=SPLIT_DATE, tr=0.8)
+    x_tr, y_tr, x_val, y_val, x_ts, y_ts = split_train_val_test_dataframe(df, type_split=TYPE_SPLIT,
+                                                                          split_dates=[SPLIT_DATE_TR_TS,SPLIT_DATE_TR_VAL], tr=0.8)
 
     # Tokenize
     x_tr_tokens, x_val_tokens, x_ts_tokens, vocab_size, tokenizer = tokenize_data(x_tr, x_val, x_ts, maxlen=MAXLEN)

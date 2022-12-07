@@ -12,8 +12,9 @@ if __name__ == '__main__':
     BATCH_SIZE = 40
     EPOCHS = 30  # 30
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT = 'random'  # 'time' or 'random'
-    SPLIT_DATE = "2013-08-09"
+    TYPE_SPLIT = 'time'  # 'time' or 'random'
+    SPLIT_DATE_TR_TS = "2013-08-09"
+    SPLIT_DATE_TR_VAL = "2012-12-09"
     SUBSET_N_SAMPLES = None  # if None takes all data
     WITH_ATTENTION = True
     TRAINING=False # If True training the models, if False load the trained model
@@ -22,13 +23,13 @@ if __name__ == '__main__':
 
 
     feature_maxlen = [
-        {"apistats": 500,"apistats_opt": 500,"regkey_opened": 500,"regkey_read": 500,"dll_loaded": 500,"mutex": 500},
-        {"apistats": 500},
-        {"apistats_opt": 500},
+        {"apistats": 200,"apistats_opt": 200,"regkey_opened": 500,"regkey_read": 500,"dll_loaded": 120,"mutex": 100},
+        {"apistats": 200},
+        {"apistats_opt": 200},
         {"regkey_opened": 500},
         {"regkey_read": 500},
-        {"dll_loaded": 500},
-        {"mutex": 500},
+        {"dll_loaded": 120},
+        {"mutex": 100},
     ]
 
     # names = ["API","API_OPT"]
@@ -49,7 +50,7 @@ if __name__ == '__main__':
 
         # Split Train-Test-Validation
         x_tr, y_tr, x_val, y_val, x_ts, y_ts = split_train_val_test_dataframe(df, type_split=TYPE_SPLIT,
-                                                                              split_date=SPLIT_DATE, tr=0.8)
+                                                                              split_dates=[SPLIT_DATE_TR_TS,SPLIT_DATE_TR_VAL])
         # Tokenize
         x_tr_tokens, x_val_tokens, x_ts_tokens, vocab_size, tokenizer = tokenize_data(x_tr, x_val, x_ts, maxlen=MAXLEN)
         print(f"Vocab size: {vocab_size}")
@@ -96,7 +97,7 @@ if __name__ == '__main__':
     axs[1].legend(loc='upper right')
     plt.suptitle(f"Neurlux Epochs: {EPOCHS} Split: {TYPE_SPLIT}")
     plt.legend()
-    # plt.savefig(f"../figure/Neurlux_Roc_Det_Epochs_{EPOCHS}_Split_{TYPE_SPLIT}.pdf")
+    plt.savefig(f"../figure/Neurlux_Roc_Det_Epochs_{EPOCHS}_Split_{TYPE_SPLIT}.pdf")
     plt.show()
 
     # %%

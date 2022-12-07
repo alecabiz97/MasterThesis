@@ -7,7 +7,6 @@ from utils import *
 
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 import keras
 import tensorflow_hub as hub
@@ -21,26 +20,27 @@ if __name__ == '__main__':
     BATCH_SIZE = 10 #
     EPOCHS = 30 # 30
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT = 'random'  # 'time' or 'random'
-    SPLIT_DATE = "2013-08-09"
+    TYPE_SPLIT = 'time'  # 'time' or 'random'
+    SPLIT_DATE_TR_TS = "2013-08-09"
+    SPLIT_DATE_TR_VAL = "2012-12-09"
     SUBSET_N_SAMPLES = None  # if None takes all data
     TRAINING=False # If True training the models, if False load the trained model
     meta_path="..\\data\\dataset1\\labels_preproc.csv"
     classes = ["Benign", "Malign"]
 
     feature_maxlen = [
-        # {"apistats": 500, "apistats_opt": 500, "regkey_opened": 500, "regkey_read": 500, "dll_loaded": 500,"mutex": 500},
-        {"apistats": 500},
-        {"apistats_opt": 500},
+        {"apistats": 200, "apistats_opt": 200, "regkey_opened": 500, "regkey_read": 500, "dll_loaded": 120, "mutex": 100},
+        {"apistats": 200},
+        {"apistats_opt": 200},
         {"regkey_opened": 500},
         {"regkey_read": 500},
-        {"dll_loaded": 500},
-        {"mutex": 500},
+        {"dll_loaded": 120},
+        {"mutex": 100},
     ]
 
-    # names = ['Mutex']
-    # names = ['All', 'API', 'API_OPT', 'Regkey_Opened', 'Regkey_Read', 'DLL_Loaded', 'Mutex']
-    names = ['API', 'API_OPT', 'Regkey_Opened', 'Regkey_Read', 'DLL_Loaded', 'Mutex']
+    # names = ['All']
+    names = ['All', 'API', 'API_OPT', 'Regkey_Opened', 'Regkey_Read', 'DLL_Loaded', 'Mutex']
+    # names = ['API', 'API_OPT', 'Regkey_Opened', 'Regkey_Read', 'DLL_Loaded', 'Mutex']
 
     model_names = [f"transformer_detection_{n}_{EPOCHS}_{TYPE_SPLIT}.h5" for n in names]
 
@@ -57,7 +57,8 @@ if __name__ == '__main__':
         n_classes = len(classes)
 
         # Split Train-Test-Validation
-        x_tr, y_tr, x_val, y_val, x_ts, y_ts = split_train_val_test_dataframe(df, type_split=TYPE_SPLIT, split_date=SPLIT_DATE,tr=0.8)
+        x_tr, y_tr, x_val, y_val, x_ts, y_ts = split_train_val_test_dataframe(df, type_split=TYPE_SPLIT,
+                                                                              split_dates=[SPLIT_DATE_TR_TS,SPLIT_DATE_TR_VAL], tr=0.8)
 
         # Tokenize
         x_tr_tokens, x_val_tokens, x_ts_tokens, vocab_size, tokenizer = tokenize_data(x_tr, x_val, x_ts, maxlen=MAXLEN)
@@ -66,8 +67,8 @@ if __name__ == '__main__':
         #num_heads = 2  # Number of attention heads
         #ff_dim = 32  # Hidden layer size in feed forward network inside transformer
 
-        model=get_model(MAXLEN,vocab_size,EMBEDDING_DIM)
-        # print(model.summary())
+        model=get_transformer_model(MAXLEN,vocab_size,EMBEDDING_DIM)
+        print(model.summary())
 
         if TRAINING:
             es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=10)
@@ -83,14 +84,14 @@ if __name__ == '__main__':
         print("TEST")
 
         # print(classification_report(y_pred, y_ts))
-        test_acc.append(model.evaluate(x_ts_tokens, y_ts)[1])
-        train_acc.append(model.evaluate(x_tr_tokens, y_tr)[1])
+        test_acc.append(model.evaluate(x_ts_tokens, y_ts,batch_size=BATCH_SIZE)[1])
+        train_acc.append(model.evaluate(x_tr_tokens, y_tr,batch_size=BATCH_SIZE)[1])
         # print(confusion_matrix(y_ts,y_pred))
 
         # Confusion matrix
         # plot_confusion_matrix(y_true=y_ts,y_pred=y_pred,classes=classes)
 
-        scores = model.predict(tf.constant(x_ts_tokens), verbose=False).squeeze()
+        scores = model.predict(tf.constant(x_ts_tokens), verbose=False,batch_size=BATCH_SIZE).squeeze()
         y_pred = scores.round().astype(int)
 
         RocCurveDisplay.from_predictions(y_ts, scores, ax=axs[0], name=f'{name}')
@@ -104,7 +105,7 @@ if __name__ == '__main__':
     axs[0].legend(loc='lower right')
     axs[1].legend(loc='upper right')
     plt.suptitle(f"Transformer Epochs: {EPOCHS} Split: {TYPE_SPLIT}")
-    # plt.savefig(f"../figure/Transformer_Roc_Det_Epochs_{EPOCHS}_Split_{TYPE_SPLIT}.pdf")
+    plt.savefig(f"../figure/Transformer_Roc_Det_Epochs_{EPOCHS}_Split_{TYPE_SPLIT}.pdf")
     plt.legend()
     plt.show()
 

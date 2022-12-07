@@ -42,27 +42,28 @@ if __name__ == '__main__':
 
     # Hyperparameters
     feature_maxlen = {
-        # "apistats": 500,
-        "apistats_opt": 500,
+        "apistats": 200,
+        # "apistats_opt": 200,
         # "regkey_opened": 500,
         # "regkey_read": 500,
-        # "dll_loaded": 200,
-        # "mutex": 50
+        # "dll_loaded": 120,
+        # "mutex": 100
     }
+
     MAXLEN = sum(feature_maxlen.values())
     EMBEDDING_DIM=256 # 256
     BATCH_SIZE = 50
-    EPOCHS = 2 # 30
+    EPOCHS = 1 # 30
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT='random' # 'time' or 'random'
-    SPLIT_DATE="2013-08-09"
-    SUBSET_N_SAMPLES=25 # if None takes all data
+    TYPE_SPLIT='time' # 'time' or 'random'
+    SPLIT_DATE_TR_TS="2013-08-09"
+    SPLIT_DATE_TR_VAL="2012-12-09"
+    SUBSET_N_SAMPLES=None # if None takes all data
     WITH_ATTENTION=True
     TRAINING=True
     meta_path="..\\data\\dataset1\\labels_preproc.csv"
     model_name="Neurlux_detection"
     classes = ["Benign", "Malign"]
-
 
     # Explanation
     LIME_EXPLANATION = False
@@ -75,7 +76,8 @@ if __name__ == '__main__':
     n_classes = len(classes)
 
     # Split Train-Test-Validation
-    x_tr, y_tr, x_val, y_val, x_ts, y_ts= split_train_val_test_dataframe(df, type_split=TYPE_SPLIT, split_date=SPLIT_DATE, tr=0.8)
+    x_tr, y_tr, x_val, y_val, x_ts, y_ts= split_train_val_test_dataframe(df, type_split=TYPE_SPLIT,
+                                                                         split_dates=[SPLIT_DATE_TR_TS,SPLIT_DATE_TR_VAL], tr=0.8)
 
     # Tokenize
     x_tr_tokens, x_val_tokens, x_ts_tokens, vocab_size, tokenizer = tokenize_data(x_tr, x_val, x_ts, maxlen=MAXLEN)
@@ -139,7 +141,7 @@ if __name__ == '__main__':
 
         explanations = lime_explanation_dataset1(x=x, x_tokens=x_tokens, y=y, model=model,tokenizer=tokenizer,
                                                  feature_maxlen=feature_maxlen,classes=classes,
-                                                 num_features=TOPK_FEATURE, feature_stats=True)
+                                                 num_features=TOPK_FEATURE, feature_stats=False)
 
         # top_feat_lime=[val[0] for val in explanation.as_list(label=explanation.available_labels()[0])]
         top_feat_lime = [[val[0] for val in exp.as_list(label=exp.available_labels()[0])] for exp in explanations]
@@ -159,16 +161,12 @@ if __name__ == '__main__':
                 print(f"[Sample {i}] Common feature Attention/LIME: {cnt}/{TOPK_FEATURE}")
 
 
-
-
-
 # %%
-
 # meta = pd.read_csv("data\\dataset1\\labels_preproc.csv")
 # x1,x2,x3,x4,x5,x6=[],[],[],[],[],[]
 #
 # for i, (filepath, label,date) in enumerate(tqdm(meta[['name', 'label','date']].values)):
-#     with open(f"{filepath}.json", 'r') as fp:
+#     with open(f"data\\{filepath}.json", 'r') as fp:
 #         data = json.load(fp)
 #     a=data['behavior']['apistats_opt']
 #     # tokenizer = Tokenizer(num_words=10000)
@@ -184,58 +182,72 @@ if __name__ == '__main__':
 #
 #
 # print("API")
-# print(np.min(x1))
-# print(np.max(x1))
-# print(np.mean(x1))
+# print(f" {np.min(x1)}")
+# print(f" {np.max(x1)}")
+# print(f" {np.mean(x1)}")
 # plt.hist(x1)
 # plt.title('API')
 # plt.show()
 #
 # print("API OPT")
-# print(np.min(x2))
-# print(np.max(x2))
-# print(np.mean(x2))
+# print(f" {np.min(x2)}")
+# print(f" {np.max(x2)}")
+# print(f" {np.mean(x2)}")
 # plt.hist(x2)
 # plt.title('API OPT')
 # plt.show()
 #
 # print("REGOP")
-# print(np.min(x3))
-# print(np.max(x3))
-# print(np.mean(x3))
+# print(f" {np.min(x3)}")
+# print(f" {np.max(x3)}")
+# print(f" {np.mean(x3)}")
 # plt.hist(x3)
 # plt.title('REGOP')
 # plt.show()
 #
 # print("REGRE")
-# print(np.min(x4))
-# print(np.max(x4))
-# print(np.mean(x4))
+# print(f" {np.min(x4)}")
+# print(f" {np.max(x4)}")
+# print(f" {np.mean(x4)}")
 # plt.hist(x4)
 # plt.title('REGRE')
 # plt.show()
 #
 # print("DLL")
-# print(np.min(x5))
-# print(np.max(x5))
-# print(np.mean(x5))
+# print(f" {np.min(x5)}")
+# print(f" {np.max(x5)}")
+# print(f" {np.mean(x5)}")
 # plt.hist(x5)
 # plt.title('DLL')
 # plt.show()
 #
 # print("MUTEX")
-# print(np.min(x6))
-# print(np.max(x6))
-# print(np.mean(x6))
+# print(f" {np.min(x6)}")
+# print(f" {np.max(x6)}")
+# print(f" {np.mean(x6)}")
 # plt.hist(x6)
 # plt.title('MUTEX')
 # plt.show()
+#
 
 
 
 
 
-
+# %%
+# files=getListOfFiles("../data/dataset1/mal_reports")
+# fp1=open("hashes.txt","w")
+# for f in tqdm(files):
+#     try:
+#         with open(f,'r') as fp:
+#             data=json.load(fp)
+#         hash=data["target"]["file"]["sha256"]
+#         fp1.write(f"{hash}\n")
+#     except:
+#         pass
+#
+# fp1.close()
+# print("Done")
 
 
 
