@@ -23,10 +23,13 @@ if __name__ == '__main__':
     EPOCHS = 15  # 30
     LEARNING_RATE = 0.0001
     TYPE_SPLIT = 'random'  # 'time' or 'random'
-    SPLIT_DATE='2019-08-01'
+    SPLIT_DATE_VAL_TS = "2019-08-01"
+    SPLIT_DATE_TR_VAL = "2019-05-01"
     SUBSET_N_SAMPLES = 1000
     TRAINING = False  # If True training the models, if False load the trained model
     meta_path = "..\\data\\Avast\\subset_100.csv"
+    classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
+
 
     feature_maxlen = [
         {'keys': 500},
@@ -52,11 +55,12 @@ if __name__ == '__main__':
         MAXLEN=sum(feat.values())
 
         # Import data
-        df, classes = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES, feature_maxlen=feat)
+        df = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES, feature_maxlen=feat)
         n_classes = len(classes)
 
         # Split Train-Test-Validation
-        x_tr, y_tr, x_val, y_val, x_ts, y_ts = split_train_val_test_dataframe(df, type_split=TYPE_SPLIT,split_date=SPLIT_DATE, tr=0.8)
+        x_tr, y_tr, x_val, y_val, x_ts, y_ts = split_train_val_test_dataframe(df, type_split=TYPE_SPLIT,
+                                                                              split_dates=[SPLIT_DATE_VAL_TS,SPLIT_DATE_TR_VAL], tr=0.8)
 
         # Tokenize
         x_tr_tokens, x_val_tokens, x_ts_tokens, vocab_size, tokenizer = tokenize_data(x_tr, x_val, x_ts, maxlen=MAXLEN)
@@ -64,7 +68,7 @@ if __name__ == '__main__':
 
 
         # Model definition
-        model = get_model(vocab_size, EMBEDDING_DIM, MAXLEN,n_classes=n_classes)
+        model = get_transformer_model(vocab_size, EMBEDDING_DIM, MAXLEN,n_classes=n_classes)
         #print(model.summary())
 
         if TRAINING:

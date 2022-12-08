@@ -46,7 +46,7 @@ if __name__ == '__main__':
     EPOCHS = 1 # 30
     LEARNING_RATE = 0.0001
     TYPE_SPLIT='random' # 'time' or 'random'
-    SPLIT_DATE_TR_TS = "2013-08-09"
+    SPLIT_DATE_VAL_TS = "2013-08-09"
     SPLIT_DATE_TR_VAL = "2012-12-09"
     SUBSET_N_SAMPLES=None # if None takes all data
     TRAINING=True
@@ -61,13 +61,13 @@ if __name__ == '__main__':
     N_SAMPLES_EXP=1
 
     # Import data
-    df, classes = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES,feature_maxlen=feature_maxlen,
-                              callback=get_label_date_text_dataframe_dataset1,classes=classes)
+    df = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES,feature_maxlen=feature_maxlen,
+                              callback=get_label_date_text_dataframe_dataset1)
     n_classes = len(classes)
 
     # Split Train-Test-Validation
     x_tr, y_tr, x_val, y_val, x_ts, y_ts = split_train_val_test_dataframe(df, type_split=TYPE_SPLIT,
-                                                                          split_dates=[SPLIT_DATE_TR_TS,SPLIT_DATE_TR_VAL], tr=0.8)
+                                                                          split_dates=[SPLIT_DATE_VAL_TS,SPLIT_DATE_TR_VAL], tr=0.8)
 
     # Tokenize
     x_tr_tokens, x_val_tokens, x_ts_tokens, vocab_size, tokenizer = tokenize_data(x_tr, x_val, x_ts, maxlen=MAXLEN)

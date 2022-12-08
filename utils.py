@@ -423,7 +423,7 @@ def get_label_date_text_dataframe_dataset1(meta_path,feature_maxlen):
     # print(len(df))
     return df
 
-def import_data(callback,classes,meta_path,subset_n_samples,feature_maxlen=None):
+def import_data(callback,meta_path,subset_n_samples,feature_maxlen=None):
     df = callback(meta_path,feature_maxlen=feature_maxlen)
 
     df = df.sample(frac=1,random_state=10)  # Shuffle dataset
@@ -431,7 +431,7 @@ def import_data(callback,classes,meta_path,subset_n_samples,feature_maxlen=None)
         df = df.iloc[0:subset_n_samples, :].reset_index(drop=True)  # Subset
     print(df.head())
 
-    return df, classes
+    return df
 
 
 
@@ -442,17 +442,17 @@ def split_train_val_test_dataframe(df,type_split,split_dates=["2013-08-09","2012
         x_tr, x_val, y_tr, y_val = train_test_split(x_train, y_train, test_size=1-tr, stratify=y_train,random_state=random_state)
 
     elif type_split == 'time':
-        split_date_tr_ts=split_dates[0]
+        split_date_val_ts=split_dates[0]
         split_date_tr_val=split_dates[1]
 
         # Split Train-Test
         x_tr, y_tr = df[df['date'] < split_date_tr_val]['text'], df[df['date'] < split_date_tr_val]['label']
-        x_ts, y_ts = df[df['date'] >= split_date_tr_ts]['text'], df[df['date'] >= split_date_tr_ts]['label']
+        x_ts, y_ts = df[df['date'] >= split_date_val_ts]['text'], df[df['date'] >= split_date_val_ts]['label']
 
         # Split Train-Validation
         # x_tr, y_tr = df[df['date'] < split_date_tr_val]['text'], df[df['date'] < split_date_tr_val]['label']
-        x_val = df[(df['date'] >= split_date_tr_val) & (df['date'] < split_date_tr_ts)]['text']
-        y_val=df[(df['date'] >= split_date_tr_val) & (df['date'] < split_date_tr_ts)]['label']
+        x_val = df[(df['date'] >= split_date_tr_val) & (df['date'] < split_date_val_ts)]['text']
+        y_val=df[(df['date'] >= split_date_tr_val) & (df['date'] < split_date_val_ts)]['label']
 
 
     print(f"Split train-test: {type_split}")
