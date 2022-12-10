@@ -25,6 +25,8 @@ if __name__ == '__main__':
     SPLIT_DATE_TR_VAL = "2012-12-09"
     SUBSET_N_SAMPLES = None  # if None takes all data
     TRAINING=False # If True training the models, if False load the trained model
+    TYPE_FIGURE="det" # "roc" - "det" - "roc_det"
+    SAVE_FIGURE=True
     meta_path="..\\data\\dataset1\\labels_preproc.csv"
     classes = ["Benign", "Malign"]
 
@@ -38,7 +40,7 @@ if __name__ == '__main__':
         {"mutex": 100},
     ]
 
-    # names = ['All']
+    # names = ["Regkey_Opened",'DLL_Loaded']
     names = ['All', 'API', 'API_OPT', 'Regkey_Opened', 'Regkey_Read', 'DLL_Loaded', 'Mutex']
     # names = ['API', 'API_OPT', 'Regkey_Opened', 'Regkey_Read', 'DLL_Loaded', 'Mutex']
 
@@ -47,7 +49,13 @@ if __name__ == '__main__':
     test_acc = []
     train_acc = []
 
-    fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+    if TYPE_FIGURE == 'roc_det':
+        fig, axs = plt.subplots(1, 2, figsize=(15, 5))
+    elif TYPE_FIGURE == 'roc':
+        fig_roc, ax_roc = plt.subplots(1, figsize=(10, 7))
+    elif TYPE_FIGURE == 'det':
+        fig_det, ax_det = plt.subplots(1, figsize=(10, 7))
+
     for feat, name,model_name in zip(feature_maxlen, names,model_names):
         MAXLEN = sum(feat.values())
 
@@ -68,7 +76,7 @@ if __name__ == '__main__':
         #ff_dim = 32  # Hidden layer size in feed forward network inside transformer
 
         model=get_transformer_model(MAXLEN,vocab_size,EMBEDDING_DIM)
-        print(model.summary())
+        # print(model.summary())
 
         if TRAINING:
             es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=10)
@@ -94,19 +102,43 @@ if __name__ == '__main__':
         scores = model.predict(tf.constant(x_ts_tokens), verbose=False,batch_size=BATCH_SIZE).squeeze()
         y_pred = scores.round().astype(int)
 
-        RocCurveDisplay.from_predictions(y_ts, scores, ax=axs[0], name=f'{name}')
-        DetCurveDisplay.from_predictions(y_ts, scores, ax=axs[1], name=f'{name}')
+        # Plot ROC and DET curves
+        if TYPE_FIGURE == 'roc_det':
+            RocCurveDisplay.from_predictions(y_ts, scores, ax=axs[0], name=f'{name}')
+            DetCurveDisplay.from_predictions(y_ts, scores, ax=axs[1], name=f'{name}')
+        elif TYPE_FIGURE == 'roc':
+            RocCurveDisplay.from_predictions(y_ts, scores, name=f'{name}', ax=ax_roc)
+        elif TYPE_FIGURE == 'det':
+            DetCurveDisplay.from_predictions(y_ts, scores, name=f'{name}', ax=ax_det)
 
-    axs[0].set_title("Receiver Operating Characteristic (ROC) curves")
-    axs[1].set_title("Detection Error Tradeoff (DET) curves")
 
-    axs[0].grid(linestyle="--")
-    axs[1].grid(linestyle="--")
-    axs[0].legend(loc='lower right')
-    axs[1].legend(loc='upper right')
-    plt.suptitle(f"Transformer Epochs: {EPOCHS} Split: {TYPE_SPLIT}")
-    plt.savefig(f"../figure/Transformer_Roc_Det_Epochs_{EPOCHS}_Split_{TYPE_SPLIT}.pdf")
-    plt.legend()
+
+    if TYPE_FIGURE == 'roc_det':
+        axs[0].set_title("Receiver Operating Characteristic (ROC) curves")
+        axs[0].grid(linestyle="--")
+        axs[0].legend(loc='lower right')
+
+        axs[1].set_title("Detection Error Tradeoff (DET) curves")
+        axs[1].grid(linestyle="--")
+        axs[1].legend(loc='upper right')
+
+        plt.suptitle(f"Transformer Epochs: {EPOCHS} Split: {TYPE_SPLIT}")
+        plt.legend()
+        if SAVE_FIGURE:
+            plt.savefig(f"../figure/Transformer_Roc_Det_Epochs_{EPOCHS}_Split_{TYPE_SPLIT}.pdf")
+    elif TYPE_FIGURE == 'roc':
+        ax_roc.set_title("Receiver Operating Characteristic (ROC) curves")
+        ax_roc.grid(linestyle="--")
+        ax_roc.legend(loc='lower right')
+        ax_roc.set_xscale('log')
+        if SAVE_FIGURE:
+            plt.savefig(f"../figure/Transformer_Roc_Epochs_{EPOCHS}_Split_{TYPE_SPLIT}.pdf")
+    elif TYPE_FIGURE == 'det':
+        ax_det.set_title("Detection Error Tradeoff (DET) curves")
+        ax_det.grid(linestyle="--")
+        ax_det.legend(loc='upper right')
+        if SAVE_FIGURE:
+            plt.savefig(f"../figure/Transformer_Det_Epochs_{EPOCHS}_Split_{TYPE_SPLIT}.pdf")
     plt.show()
 
     # %%
@@ -116,8 +148,17 @@ if __name__ == '__main__':
         print(f"    Test acc: {round(test_acc[i], 2)}")
 
 
-
-
+# %%
+# import matplotlib.pyplot as plt
+# import numpy as np
+# x=np.arange(10)
+# y=x**5
+#
+# fig,ax=plt.subplots(1,figsize=(10,7))
+# for i in range(6):
+#     plt.plot(x,y,label=f"yyyyyyyyyyyyyyyyyy{i}")
+# ax.legend(loc='lower right')
+# plt.show()
 
 
 

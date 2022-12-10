@@ -72,17 +72,17 @@ if __name__ == '__main__':
 
                     d = {"static":data["static"],
                             "behavior": {"apistats": list(apis_stats),
-                                              "apistats_opt": opt_api(apis_stats),
-                                              "summary": {"regkey_opened": regkey_opened,
-                                                          "regkey_read": regkey_read,
-                                                          "dll_loaded": dll_loaded,
-                                                          "mutex": mutex}}}
+                                         "apistats_opt": opt_api(apis_stats),
+                                         "regkey_opened": regkey_opened,
+                                          "regkey_read": regkey_read,
+                                          "dll_loaded": dll_loaded,
+                                          "mutex": mutex}}
 
                     name = filepath.split("\\")[-1].split(".")[0]
                     label = 0 if filepath.split("\\")[-2] == 'ben_reports' else 1  # 0 -> benign , 1 -> malign
                     date = data['static']['pe_timestamp'].split(" ")[0]
 
-                    p = "data\\dataset1\\ben_preproc\\" if label == 0 else "dataset1\\mal_preproc\\"
+                    p = "data\\dataset1\\ben_preproc\\" if label == 0 else "data\\dataset1\\mal_preproc\\"
 
                     json_object = json.dumps(d, indent=4)
                     with open(f"{p}{name}.json", "w") as outfile:
@@ -105,7 +105,7 @@ if __name__ == '__main__':
 
     print(s1)
     print(s2)
-    df.to_csv(f'data\\dataset1\\labels_preproc.csv', index=False)
+    # df.to_csv(f'data\\dataset1\\labels_preproc.csv', index=False)
 
 
 

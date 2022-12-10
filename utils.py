@@ -393,28 +393,34 @@ def get_label_date_text_dataframe_dataset1(meta_path,feature_maxlen):
         with open(f"..\\data\\{filepath}.json", 'r') as fp:
             data = json.load(fp)
 
-        feat=[]
-        if 'apistats' in feature_maxlen.keys():
-            x = data["behavior"]['apistats']
-            feat.append(x[0:min(len(x), feature_maxlen["apistats"])])
-        if 'apistats_opt' in feature_maxlen.keys():
-            x = data["behavior"]["apistats_opt"]
-            feat.append(x[0:min(len(x),feature_maxlen["apistats_opt"])])
-        if 'regkey_opened' in feature_maxlen.keys():
-            x = data["behavior"]["summary"]["regkey_opened"]
-            feat.append(x[0:min(len(x),feature_maxlen["regkey_opened"])])
-        if 'regkey_read' in feature_maxlen.keys():
-            x = data["behavior"]["summary"]["regkey_read"]
-            feat.append(x[0:min(len(x),feature_maxlen["regkey_read"])])
-        if 'dll_loaded' in feature_maxlen.keys():
-            x = data["behavior"]["summary"]["dll_loaded"]
-            feat.append(x[0:min(len(x),feature_maxlen["dll_loaded"])])
-        if 'mutex' in feature_maxlen.keys():
-            x = data["behavior"]["summary"]["mutex"]
-            feat.append(x[0:min(len(x),feature_maxlen["mutex"])])
+        text = []
+        for feat in feature_maxlen.keys():
+            x = data["behavior"][feat]
+            text.append(x[0:min(len(x), feature_maxlen[feat])])
 
+        text = preprocessing_data(str(text))
 
-        text = preprocessing_data(str(feat))
+        # feat=[]
+        # if 'apistats' in feature_maxlen.keys():
+        #     x = data["behavior"]['apistats']
+        #     feat.append(x[0:min(len(x), feature_maxlen["apistats"])])
+        # if 'apistats_opt' in feature_maxlen.keys():
+        #     x = data["behavior"]["apistats_opt"]
+        #     feat.append(x[0:min(len(x),feature_maxlen["apistats_opt"])])
+        # if 'regkey_opened' in feature_maxlen.keys():
+        #     x = data["behavior"]["summary"]["regkey_opened"]
+        #     feat.append(x[0:min(len(x),feature_maxlen["regkey_opened"])])
+        # if 'regkey_read' in feature_maxlen.keys():
+        #     x = data["behavior"]["summary"]["regkey_read"]
+        #     feat.append(x[0:min(len(x),feature_maxlen["regkey_read"])])
+        # if 'dll_loaded' in feature_maxlen.keys():
+        #     x = data["behavior"]["summary"]["dll_loaded"]
+        #     feat.append(x[0:min(len(x),feature_maxlen["dll_loaded"])])
+        # if 'mutex' in feature_maxlen.keys():
+        #     x = data["behavior"]["summary"]["mutex"]
+        #     feat.append(x[0:min(len(x),feature_maxlen["mutex"])])
+        # text = preprocessing_data(str(feat))
+
         df_tmp = pd.DataFrame({'label': label,
                                "date": date,
                                'text': text}, index=[i])
