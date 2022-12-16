@@ -60,23 +60,53 @@ if __name__ == '__main__':
                 if "apistats" in beh_keys and "summary" in beh_keys:
                     pids = list(data["behavior"]["apistats"].keys())
 
+                    # API
                     apis_stats = [data["behavior"]["apistats"][pids[i]] for i in range(len(pids))]
                     apis_stats = merge_dict(apis_stats)
 
                     sum_keys=data["behavior"]["summary"].keys()
 
+                    # REG
                     regkey_read = data["behavior"]["summary"]["regkey_read"] if "regkey_read" in sum_keys else []
                     regkey_opened = data["behavior"]["summary"]["regkey_opened"] if "regkey_opened" in sum_keys else []
+                    regkey_deleted = data["behavior"]["summary"]["regkey_deleted"] if "regkey_deleted" in sum_keys else []
+                    regkey_written = data["behavior"]["summary"]["regkey_written"] if "regkey_written" in sum_keys else []
+
+                    # FILES
+                    file_deleted = data["behavior"]["summary"]["file_deleted"] if "file_deleted" in sum_keys else []
+                    file_failed = data["behavior"]["summary"]["file_failed"] if "file_failed" in sum_keys else []
+                    file_read = data["behavior"]["summary"]["file_read"] if "file_read" in sum_keys else []
+                    file_opened = data["behavior"]["summary"]["file_opened"] if "file_opened" in sum_keys else []
+                    file_exists = data["behavior"]["summary"]["file_exists"] if "file_exists" in sum_keys else []
+                    file_written = data["behavior"]["summary"]["file_written"] if "file_written" in sum_keys else []
+                    file_created = data["behavior"]["summary"]["file_created"] if "file_created" in sum_keys else []
+
+
+                    # DLL
                     dll_loaded = data["behavior"]["summary"]["dll_loaded"] if "dll_loaded" in sum_keys else []
+
+                    # MUTEX
                     mutex = data["behavior"]["summary"]["mutex"] if "mutex" in sum_keys else []
 
+
                     d = {"static":data["static"],
-                            "behavior": {"apistats": list(apis_stats),
-                                         "apistats_opt": opt_api(apis_stats),
-                                         "regkey_opened": regkey_opened,
-                                          "regkey_read": regkey_read,
-                                          "dll_loaded": dll_loaded,
-                                          "mutex": mutex}}
+                        "behavior": {"apistats": list(apis_stats),
+                                     "apistats_opt": opt_api(apis_stats),
+                                     "regkey_read":regkey_written,
+                                     "regkey_opened":regkey_opened,
+                                     "regkey_deleted":regkey_deleted,
+                                     "regkey_written":regkey_written,
+                                     "file_deleted": file_deleted,
+                                     "file_failed": file_failed,
+                                     "file_read": file_read,
+                                     "file_opened": file_opened,
+                                     "file_exists": file_exists,
+                                     "file_written": file_written,
+                                     "file_created": file_created,
+                                      "dll_loaded": dll_loaded,
+                                      "mutex": mutex
+                                     }
+                         }
 
                     name = filepath.split("\\")[-1].split(".")[0]
                     label = 0 if filepath.split("\\")[-2] == 'ben_reports' else 1  # 0 -> benign , 1 -> malign

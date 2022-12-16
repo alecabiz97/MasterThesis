@@ -2,36 +2,37 @@ import tensorflow as tf
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from utils import *
 from neurlux_classification import get_neurlux
-
+from time import time
 
 if __name__ == '__main__':
     # Hyperparameters
     EMBEDDING_DIM = 256  # 256
     BATCH_SIZE = 50
-    EPOCHS = 15  # 10
+    EPOCHS = 30  # 10
     LEARNING_RATE = 0.0001
     TYPE_SPLIT = 'random'  # 'time' or 'random'
     SPLIT_DATE_VAL_TS = "2019-08-01"
     SPLIT_DATE_TR_VAL = "2019-05-01"
-    SUBSET_N_SAMPLES = 1000
+    SUBSET_N_SAMPLES = None
     WITH_ATTENTION = True
-    TRAINING = True  # If True training the models, if False load the trained model
-    meta_path = "..\\data\\Avast\\subset_100.csv"
+    TRAINING = False  # If True training the models, if False load the trained model
+    # meta_path = "..\\data\\Avast\\subset_100.csv"
+    meta_path = "..\\data\\Avast\\public_labels.csv"
     classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
 
 
     feature_maxlen = [
         {'keys': 500},
-        {'resolved_apis': 500},
-        {'executed_commands': 500},
-        {'write_keys': 500},
-        {'files': 500},
-        {'read_files': 500},
-        {'write_files': 500},
-        {'delete_keys': 500},
-        {'read_keys': 500},
-        {'delete_files': 500},
-        {'mutexes': 500},
+        {'resolved_apis': 200},
+        {'executed_commands': 20},
+        {'write_keys': 20},
+        {'files': 100},
+        {'read_files': 200},
+        {'write_files': 100},
+        {'delete_keys': 100},
+        {'read_keys': 250},
+        {'delete_files': 50},
+        {'mutexes': 20},
         # {'keys': 500,'resolved_apis': 500,'read_keys': 500,'files': 500},
     ]
     test_acc = []
@@ -39,13 +40,15 @@ if __name__ == '__main__':
 
     names=[list(x.keys())[0] for x in feature_maxlen]
     model_names = [f"neurlux_avast_{n}_{EPOCHS}_{TYPE_SPLIT}.h5" for n in names]
-
     for feat, name,model_name in zip(feature_maxlen, names,model_names):
         MAXLEN=sum(feat.values())
 
         # Import data
+        start = time()
         df = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES, feature_maxlen=feat,
                                   callback = get_label_date_text_dataframe_avast)
+        end=time()
+        print(f"Time import: {(end-start)/60}")
         n_classes = len(classes)
 
         # Split Train-Test-Validation
@@ -59,7 +62,7 @@ if __name__ == '__main__':
         # Model definition
         model,_ = get_neurlux(vocab_size, EMBEDDING_DIM, MAXLEN,n_classes=n_classes,with_attention=WITH_ATTENTION)
         # print(model.summary())
-
+        start = time()
         if TRAINING:
             es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=10)
             mc = ModelCheckpoint(f"./trained_models/avast/{model_name}", monitor='val_accuracy', mode='max', verbose=1, save_best_only=True)
@@ -70,7 +73,8 @@ if __name__ == '__main__':
                                           verbose=1, callbacks=[es, mc])
         else:
             model.load_weights(f"./trained_models/avast/{model_name}")
-
+        end = time()
+        print(f"Time epoch: {(end - start) / 60}")
         # Test
         print("TEST")
 

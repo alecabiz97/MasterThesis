@@ -66,19 +66,19 @@ println("Test size: $(test_size)")
 static= map(jsons) do j x = Dict("static" => j["static"]) end
 api = map(jsons) do j  x = Dict("apistats" => j["behavior"]["apistats"]) end
 api_opt = map(jsons) do j  x = Dict("apistats_opt" => j["behavior"]["apistats_opt"]) end
-dll = map(jsons) do j  x = Dict("dll_loaded" => j["behavior"]["summary"]["dll_loaded"]) end
-regop = map(jsons) do j  x = Dict("regkey_opened" => j["behavior"]["summary"]["regkey_opened"]) end
-regre = map(jsons) do j x = Dict("regkey_read" => j["behavior"]["summary"]["regkey_read"]) end
-mutex = map(jsons) do j x = Dict("mutex" => j["behavior"]["summary"]["mutex"]) end
+dll = map(jsons) do j  x = Dict("dll_loaded" => j["behavior"]["dll_loaded"]) end
+regop = map(jsons) do j  x = Dict("regkey_opened" => j["behavior"]["regkey_opened"]) end
+regre = map(jsons) do j x = Dict("regkey_read" => j["behavior"]["regkey_read"]) end
+mutex = map(jsons) do j x = Dict("mutex" => j["behavior"]["mutex"]) end
 
 api_opt_regre = map(jsons) do j  x = Dict("apistats_opt" => j["behavior"]["apistats_opt"],
-                                        "regkey_read" => j["behavior"]["summary"]["regkey_read"]) end
+                                        "regkey_read" => j["behavior"]["regkey_read"]) end
 api_regre = map(jsons) do j  x = Dict("apistats" => j["behavior"]["apistats"],
-                                            "regkey_read" => j["behavior"]["summary"]["regkey_read"]) end
+                                            "regkey_read" => j["behavior"]["regkey_read"]) end
 
 api_dll_regre = map(jsons) do j  x = Dict("apistats" => j["behavior"]["apistats"],
-                                        "dll_loaded" => j["behavior"]["summary"]["dll_loaded"],
-                                        "regkey_read" => j["behavior"]["summary"]["regkey_read"]) end
+                                        "dll_loaded" => j["behavior"]["dll_loaded"],
+                                        "regkey_read" => j["behavior"]["regkey_read"]) end
 
 behavior=map(jsons) do j
     #delete!(j["behavior"],"apistats")
@@ -93,8 +93,8 @@ features_names = ["All","API","API_OPT","Regkey_Opened","Regkey_Read","DLL_Loade
 #features_names = ["API","API_OPT"]
 
 #p = plot()
-p1=plot(title="Receiver Operating Characteristic")
-p2=plot(title="Detection Error Tradeoff")
+p_roc=plot(title="Receiver Operating Characteristic")
+p_det=plot(title="Detection Error Tradeoff")
 colors=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2"]
 global j=1
 test_acc = []
@@ -165,7 +165,10 @@ for (jsons, name) in zip(features, features_names)
     #plot!(p, roc_curve, lw = 3, label = "$name -- AUC: $(round(auc,digits = 3))")
     
     # ROC
-    plot!(p1,roc_curve,label = "$name (AUC: $(round(auc,digits = 2)))",color=colors[j], legend=:bottomright)
+    plot!(p_roc,roc_curve.FPR,roc_curve.TPR,label = "$name (AUC: $(round(auc,digits = 2)))",color=colors[j], legend=:bottomright,xscale=:log10)
+    xlims!(1e-3, 1e+0)
+    xlabel!("False Positive Rate")
+    ylabel!("True Positive Rate")
     xaxis!(widen=true)
     yaxis!(widen=true)
     xlabel!("False Positive Rate (Positive label: 1)")
@@ -181,7 +184,7 @@ for (jsons, name) in zip(features, features_names)
     tick_labels=["$(trunc(Int,100*i))%" for i in ticks]
     tick_labels[1]=""; tick_labels[end]="";
 
-    plot!(p2,quantile(Normal(0.0, 1.0),fpr),quantile(Normal(0.0, 1.0),fnr),label = "$name",color=colors[j], legend=:topright)
+    plot!(p_det,quantile(Normal(0.0, 1.0),fpr),quantile(Normal(0.0, 1.0),fnr),label = "$name",color=colors[j], legend=:topright)
     xaxis!(ticks=(tick_locations,tick_labels),lims=(-3,3))
     yaxis!(ticks=(tick_locations,tick_labels),lims=(-3,3))
     xlabel!("False Positive Rate (Positive label: 1)")
@@ -189,11 +192,17 @@ for (jsons, name) in zip(features, features_names)
     j += 1
 end
 #display(p)
-p3=plot(p1,p2,layout=(1,2),size=(1100,400),dpi=400,lw=2,
+p_roc_det=plot(p_roc,p_det,layout=(1,2),size=(1100,400),dpi=400,lw=2,
     left_margin = 5Plots.mm, right_margin = 5Plots.mm, up_margin=5Plots.mm,  bottom_margin=5Plots.mm
 )
-display(p3)
-savefig("JsonGrinder_$split_choose.pdf")
+display(p_roc_det)
+display(p_roc)
+display(p_det)
+
+#savefig(p_roc_det,"JsonGrinder_Roc_Det_$split_choose.pdf")
+savefig(p_roc,"JsonGrinder_Roc_$split_choose.pdf")
+savefig(p_det,"JsonGrinder_Det_$split_choose.pdf")
+
 
 println("\nFinal evaluation")
 for i in 1:length(features_names)

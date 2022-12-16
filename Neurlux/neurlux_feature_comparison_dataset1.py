@@ -18,23 +18,48 @@ if __name__ == '__main__':
     SUBSET_N_SAMPLES = None  # if None takes all data
     WITH_ATTENTION = True
     TRAINING=False # If True training the models, if False load the trained model
-    TYPE_FIGURE="det" # "roc" - "det" - "roc_det"
-    SAVE_FIGURE=True
+    TYPE_FIGURE="roc" # "roc" - "det" - "roc_det"
+    SAVE_FIGURE=False
     meta_path="..\\data\\dataset1\\labels_preproc.csv"
     classes = ["Benign", "Malign"]
 
     feature_maxlen = [
-        {"apistats": 200,"apistats_opt": 200,"regkey_opened": 500,"regkey_read": 500,"dll_loaded": 120,"mutex": 100},
+        # {"apistats": 200,"apistats_opt": 200,"regkey_opened": 500,"regkey_read": 500,"dll_loaded": 120,"mutex": 100},
         {"apistats": 200},
         {"apistats_opt": 200},
         {"regkey_opened": 500},
         {"regkey_read": 500},
         {"dll_loaded": 120},
         {"mutex": 100},
+        {"regkey_deleted": 500},
+        {"regkey_written": 500},
+        {"file_deleted": 500},
+        {"file_failed": 500},
+        {"file_read": 500},
+        {"file_opened": 500},
+        {"file_exists": 500},
+        {"file_written": 500},
+        {"file_created": 500}
     ]
 
-    # names = ["API","API_OPT"]
-    names=['All','API','API_OPT','Regkey_Opened','Regkey_Read','DLL_Loaded','Mutex']
+    names=[
+           'API',
+           'API_OPT',
+           'Regkey_Opened',
+           'Regkey_Read',
+           'DLL_Loaded',
+           'Mutex',
+           'Regkey_Deleted',
+           'Regkey_Written',
+           'File_Deleted',
+           'File_Failed',
+           'File_Read',
+           'File_Opened',
+           'File_Exists',
+           'File_Written',
+           'File_Created'
+           ]
+
 
     model_names = [f"neurlux_detection_{n}_{EPOCHS}_{TYPE_SPLIT}.h5" for n in names]
     test_acc = []

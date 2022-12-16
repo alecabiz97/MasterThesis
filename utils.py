@@ -49,8 +49,8 @@ def lime_explanation_avast(x,x_tokens,y,model,tokenizer,feature_maxlen,classes,n
         explanation = explainer.explain_instance(sample, classifier_fn=predict_proba, num_features=num_features, top_labels=1)
         exps.append(deepcopy(explanation))
 
-        explanation.save_to_file(f'exp_{idx}.html')
-        print("Explanation file created")
+        explanation.save_to_file(f'exp_{idx}_avast.html')
+        print("Explanation file created\n")
 
         if feature_stats:
             for val, importance in explanation.as_list(label=explanation.available_labels()[0]):

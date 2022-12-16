@@ -1,4 +1,6 @@
 import warnings
+
+import matplotlib.pyplot as plt
 from keras.layers import LSTM, Bidirectional, Dense, Dropout, Input,Embedding,Conv1D,MaxPooling1D,CuDNNLSTM
 import pickle
 import keras
@@ -42,8 +44,8 @@ if __name__ == '__main__':
 
     # Hyperparameters
     feature_maxlen = {
-        # "apistats": 200, #200
-        "apistats_opt": 200, #200
+        "apistats": 200, #200
+        # "apistats_opt": 200, #200
         # "regkey_opened": 500, #500
         # "regkey_read": 500,
         # "dll_loaded": 120,
@@ -53,7 +55,7 @@ if __name__ == '__main__':
     MAXLEN = sum(feature_maxlen.values())
     EMBEDDING_DIM=256 # 256
     BATCH_SIZE = 50
-    EPOCHS = 20 # 30
+    EPOCHS = 15 # 30
     LEARNING_RATE = 0.0001
     TYPE_SPLIT='random' # 'time' or 'random'
     SPLIT_DATE_VAL_TS="2013-08-09"
@@ -66,7 +68,7 @@ if __name__ == '__main__':
     classes = ["Benign", "Malign"]
 
     # Shap Explanation
-    SHAP=False
+    SHAP=True
 
     # Lime Explanation
     LIME_EXPLANATION = True
@@ -130,11 +132,19 @@ if __name__ == '__main__':
     plot_confusion_matrix(y_true=y_ts, y_pred=y_pred, classes=classes)
 
 
+# %% Explanation
 
-# %%
-
+    # hash = "00b26c8964bf6c20183d13867e6dbcb0"
+    # hash = "00a0f5fe1ba0102ed789b2aa85c3e316"
     hash = "1a9ab9e924a6856d642bbe88064e4236"
 
+    with open(f"..\\data\\dataset1\\mal_preproc\\{hash}.json", "r") as fp:
+        data = json.load(fp)
+
+    text = []
+    for feat in feature_maxlen.keys():
+        x = data["behavior"][feat]
+        text.append(x[0:min(len(x), feature_maxlen[feat])])
 
     # LIME Explanation
     if LIME_EXPLANATION:
@@ -147,13 +157,8 @@ if __name__ == '__main__':
         # y = y_ts.iloc[idx:idx + 1]
 
         # hash = "0fb068a699abfe607e4e9f99c1aad3ab"
-        with open(f"..\\data\\dataset1\\mal_preproc\\{hash}.json", "r") as fp:
-            data = json.load(fp)
 
-        text = []
-        for feat in feature_maxlen.keys():
-            x = data["behavior"][feat]
-            text.append(x[0:min(len(x), feature_maxlen[feat])])
+
         x = pd.Series(preprocessing_data(str(text)))
         x_tokens = tokenizer.texts_to_sequences(x)
         x_tokens = pad_sequences(x_tokens, maxlen=MAXLEN, padding='post')
@@ -180,16 +185,10 @@ if __name__ == '__main__':
 
 # %% SHAP Explanation
     if SHAP:
-        # explainer = shap.KernelExplainer(model.predict, np.zeros((1,x_tr_tokens.shape[1])))
-        explainer = shap.KernelExplainer(model.predict, shap.sample(x_tr_tokens,200))
+        explainer = shap.KernelExplainer(model.predict, np.zeros((1,x_tr_tokens.shape[1])))
+        # explainer = shap.KernelExplainer(model.predict, shap.sample(x_tr_tokens,100))
 
-        with open(f"..\\data\\dataset1\\mal_preproc\\{hash}.json", "r") as fp:
-            data = json.load(fp)
 
-        text = []
-        for feat in feature_maxlen.keys():
-            x = data["behavior"][feat]
-            text.append(x[0:min(len(x), feature_maxlen[feat])])
         sample = preprocessing_data(str(text))
         sample_tokens = tokenizer.texts_to_sequences([sample])
         sample_tokens = pad_sequences(sample_tokens, maxlen=MAXLEN, padding='post')
@@ -213,24 +212,23 @@ if __name__ == '__main__':
             if i != 0:
                 text.append(tokenizer.index_word[i])
             else:
-                text.append("None")
+                text.append("PAD")
         print(sample)
         print(text)
 
         # p = shap.force_plot(explainer.expected_value[0], shap_values[0], text)
         # p.matplotlib(figsize=(15, 5), show=True, text_rotation=None)
+
         shap.summary_plot(shap_values[0], sample_tokens, feature_names=text, class_names=classes,plot_size=(10.,5.))
 
         # Dependence plot
         feature=text[np.argmax(shap_values[0])]
-        # api = "isdebuggerpresent"
         id=tokenizer.word_index[feature]
-        # api = "None"
-        # id = 0
 
+        fig,ax=plt.subplots(1,figsize=(10,5))
         shap.partial_dependence_plot(feature, model.predict, sample_tokens, ice=False,
                                      model_expected_value=True, feature_expected_value=True, feature_names=text,
-                                     xmin=id-10, xmax=id + 10)
+                                     xmin=id-10, xmax=id + 10,ax=ax)
         print(model.predict(sample_tokens))
 
 
@@ -241,14 +239,25 @@ if __name__ == '__main__':
 # import matplotlib.pyplot as plt
 # from tqdm import tqdm
 #
-# meta = pd.read_csv("data\\dataset1\\labels_preproc.csv")
+# # meta = pd.read_csv("data\\dataset1\\labels.csv")
+# meta = pd.read_csv("..\\data\\dataset1\\labels_preproc.csv")
+#
 # d = {
 #         "apistats": [],
 #         "apistats_opt": [],
 #         "regkey_opened": [],
 #         "regkey_read": [],
 #         "dll_loaded": [],
-#         "mutex": []
+#         "mutex": [],
+#         "regkey_deleted": [],
+#         "regkey_written": [],
+#         "file_deleted": [],
+#         "file_failed": [],
+#         "file_read": [],
+#         "file_opened": [],
+#         "file_exists": [],
+#         "file_written": [],
+#         "file_created": []
 # }
 # cnt=0
 # for i, (filepath, label,date) in enumerate(tqdm(meta[['name', 'label','date']].values)):
@@ -271,6 +280,69 @@ if __name__ == '__main__':
 #     plt.hist(d[k],bins=100)
 #     plt.title(f'{k}')
 #     plt.show()
+
+# %%
+import pandas as pd
+import json
+import numpy as np
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+# from utils import *
+#
+# ben_files=getListOfFiles("data/dataset1/ben_reports")
+# mal_files=getListOfFiles("data/dataset1/mal_reports")
+# # keys=set()
+# info_keys={"file_deleted":[],
+#     "wmi_query":[],
+#     "mutex":[],
+#     "file_failed":[],
+#     "file_read":[],
+#     "directory_created":[],
+#     "directory_enumerated":[],
+#     "command_line":[],
+#     "regkey_deleted":[],
+#     "file_opened":[],
+#     "fetches_url":[],
+#     "file_recreated":[],
+#     "resolves_host":[],
+#     "file_exists":[],
+#     "regkey_opened":[],
+#     "connects_host":[],
+#     "file_written":[],
+#     "guid":[],
+#     "file_created":[],
+#     "dll_loaded":[],
+#     "file_moved":[],
+#     "file_copied":[],
+#     "regkey_written":[],
+#     "directory_removed":[],
+#     "connects_ip":[]
+#       }
+# cnt=0
+# for fname in tqdm(ben_files+mal_files):
+#     try:
+#         with open(fname,'r') as fp:
+#             data=json.load(fp)
+#         # keys.update(list(data['behavior']['summary'].keys()))
+#         summary_keys=list(data['behavior']['summary'].keys())
+#         for k in info_keys.keys():
+#             if k in summary_keys:
+#                 n=len(data['behavior']['summary'][k])
+#                 info_keys[k].append(n)
+#         cnt+=1
+#     except:
+#         pass
+#
+# for k,val in info_keys.items():
+#     print(k, len(val))
+#     print(f"    Min: {min(val)}")
+#     print(f"    Max: {max(val)}")
+#     print(f"    Mean: {np.mean(val)}")
+#     plt.hist(val, bins=100)
+#     plt.title(f'{k}')
+#     plt.show()
+#
+# print(f"\nN_sample: {cnt}")
 
 # %%
 # files=getListOfFiles("../data/dataset1/mal_reports")

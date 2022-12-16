@@ -1,4 +1,6 @@
 import warnings
+
+import numpy as np
 from keras.layers import Activation, LSTM, Bidirectional, Dense, Dropout, Input,Embedding, Conv1D,MaxPooling1D,CuDNNLSTM
 import keras.backend as K
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -9,6 +11,7 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint
 from keras import initializers, regularizers
 from keras import constraints
 from utils import *
+import shap
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -43,30 +46,27 @@ if __name__ == '__main__':
 
     # Hyperparameters
     feature_maxlen = {
-        'keys': 500,
-        'resolved_apis': 600,
-        'executed_commands': 20,
-        'write_keys': 20,
-        'files': 600,
-        'read_files': 200,
-        "started_services":50,
-        "created_services":50,
-        'write_files': 400,
-        'delete_keys': 100,
-        'read_keys': 400,
-        'delete_files':100,
-        'mutexes': 50
+        # 'keys': 500,
+        'resolved_apis': 200,
+        # 'executed_commands': 20,
+        # 'write_keys': 20,
+        # 'files': 100,
+        # 'read_files': 200,
+        # "started_services":5,
+        # "created_services":5,
+        # 'write_files': 100,
+        # 'delete_keys': 100,
+        # 'read_keys': 250,
+        # 'delete_files':50,
+        # 'mutexes': 20
     }
     MAXLEN = sum(feature_maxlen.values())
 
-    # feature_maxlen=None
-    # MAXLEN = 1000
-
     EMBEDDING_DIM=256 # 256
     BATCH_SIZE = 40
-    EPOCHS = 15 # 10
+    EPOCHS = 30 # 10
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT='random' # 'time' or 'random'
+    TYPE_SPLIT='time' # 'time' or 'random'
     SPLIT_DATE_VAL_TS = "2019-08-01"
     SPLIT_DATE_TR_VAL = "2019-05-01"
     SUBSET_N_SAMPLES=1000 # if None takes all data
@@ -78,6 +78,7 @@ if __name__ == '__main__':
 
 
     # Explanation
+    SHAP=True
     LIME_EXPLANATION = False
     TOPK_FEATURE = 10
     N_SAMPLES_EXP = 1
@@ -125,12 +126,18 @@ if __name__ == '__main__':
     # Confusion matrix
     plot_confusion_matrix(y_true=y_ts, y_pred=y_pred, classes=classes)
 
+# %% Explanation
 
     # LIME Explanation
     if LIME_EXPLANATION:
-        x = x_ts[0:N_SAMPLES_EXP]
-        x_tokens = x_ts_tokens[0:N_SAMPLES_EXP]
-        y = y_ts[0:N_SAMPLES_EXP]
+        # x = x_ts[0:N_SAMPLES_EXP]
+        # x_tokens = x_ts_tokens[0:N_SAMPLES_EXP]
+        # y = y_ts[0:N_SAMPLES_EXP]
+
+        idx=1
+        x = x_ts.iloc[idx:idx + 1]
+        x_tokens = x_ts_tokens[idx:idx + 1]
+        y = y_ts.iloc[idx:idx + 1]
 
         explanations = lime_explanation_avast(x=x, x_tokens=x_tokens, y=y, model=model,tokenizer=tokenizer,
                                               feature_maxlen=feature_maxlen,classes=classes,
@@ -149,11 +156,106 @@ if __name__ == '__main__':
                     if val in top_feat_lime[i]:
                         # print(val)
                         cnt += 1
-                print(f"[Sample {i}] Common feature Attention/LIME: {cnt}/{TOPK_FEATURE}")
+                print(f"[Sample {i}] Common feature Attention/LIME: {cnt}/{TOPK_FEATURE}\n")
+
+
+# %%
+    if SHAP:
+        explainer = shap.KernelExplainer(model.predict, np.zeros((1,x_ts_tokens.shape[1])))
+        # explainer = shap.KernelExplainer(model.predict, x_tr_tokens)
+
+        idx=1
+        sample=x_ts.iloc[idx]
+        sample_tokens=x_ts_tokens[idx:idx+1]
+        idx_true=y_ts.iloc[idx]
+        y_true = classes[idx_true]
+
+        y_pred = classes[np.argmax(model.predict(tf.constant(sample_tokens)), axis=1)[0]]
+        print(idx)
+        print(f"True ({idx_true}): {y_true}")
+        print(f"Predicted: {y_pred}")
+
+        shap_values = explainer.shap_values(sample_tokens, nsamples='auto')
+        # shap.initjs()
+
+        text = []
+        for i in sample_tokens[0]:
+            if i != 0:
+                text.append(tokenizer.index_word[i])
+            else:
+                text.append("None")
+        # print(sample)
+        # print(text)
+
+        shap.summary_plot(shap_values, sample_tokens,feature_names=text,class_names=classes,plot_size=(20.,5.))
+
+        # fig, ax = plt.subplots(1, figsize=(10, 5))
+        # shap.summary_plot(shap_values[0], sample_tokens, feature_names=text, plot_size=(10., 5.))
+
+        # fig, ax = plt.subplots(1, figsize=(10, 5))
+        # shap.dependence_plot(1, shap_values[0], sample_tokens, feature_names=text, ax=ax)
+
+        fig, ax = plt.subplots(1, figsize=(10, 5))
+        feature = text[np.argmax(shap_values[idx_true])]
+        id = tokenizer.word_index[feature]
+        def f(x):
+            scores=model.predict(x,verbose=False)
+            # return scores.flatten()[idx_true]
+            return np.argmax(scores)
+
+        shap.partial_dependence_plot(feature, f, sample_tokens, ice=False,
+                                     model_expected_value=True, feature_expected_value=True, feature_names=text,ylabel="Class ID",
+                                     xmin=id-50, xmax=id + 800,ax=ax)
+
+        # p = shap.force_plot(explainer.expected_value[0], shap_values[0][0], text)
+        # p.matplotlib(figsize=(20, 5), show=True, text_rotation=None)
 
 
 
-
-
-
-
+# %% Check feature max len
+# import pandas as pd
+# import json
+# import numpy as np
+# import matplotlib.pyplot as plt
+# from tqdm import tqdm
+#
+# # meta_path = "..\\data\\Avast\\subset_100.csv"
+# meta_path = "data\\Avast\\public_labels.csv"
+#
+# meta=pd.read_csv(meta_path)
+# d = {
+#     'keys': [],
+#     'resolved_apis': [],
+#     'executed_commands': [],
+#     'write_keys': [],
+#     'files': [],
+#     'read_files': [],
+#     "started_services":[],
+#     "created_services":[],
+#     'write_files': [],
+#     'delete_keys': [],
+#     'read_keys': [],
+#     'delete_files':[],
+#     'mutexes': []
+# }
+# cnt=0
+# for i, (filepath, label,date) in enumerate(tqdm(meta[['sha256', 'classification_family','date']].values)):
+#     try:
+#         with open(f"data\\Avast\\public_small_reports\\{filepath}.json", 'r') as fp:
+#             data = json.load(fp)
+#         d_tmp=data["behavior"]["summary"]
+#         for k in d_tmp.keys():
+#             d[k].append(len(d_tmp[k]))
+#         cnt += 1
+#     except:
+#         pass
+#
+# print(f"N: {cnt}")
+# for k in d.keys():
+#     print(k)
+#     print(f"    Min: {min(d[k])}")
+#     print(f"    Max: {max(d[k])}")
+#     print(f"    Mean: {np.mean(d[k])}")
+#     plt.hist(d[k],bins=100)
+#     plt.title(f'{k}')
+#     plt.show()
