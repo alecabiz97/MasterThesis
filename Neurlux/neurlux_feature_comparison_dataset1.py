@@ -12,14 +12,14 @@ if __name__ == '__main__':
     BATCH_SIZE = 40
     EPOCHS = 30  # 30
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT = 'random'  # 'time' or 'random'
+    TYPE_SPLIT = 'time'  # 'time' or 'random'
     SPLIT_DATE_VAL_TS = "2013-08-09"
     SPLIT_DATE_TR_VAL = "2012-12-09"
     SUBSET_N_SAMPLES = None  # if None takes all data
     WITH_ATTENTION = True
     TRAINING=False # If True training the models, if False load the trained model
     TYPE_FIGURE="roc" # "roc" - "det" - "roc_det"
-    SAVE_FIGURE=False
+    SAVE_FIGURE=True
     meta_path="..\\data\\dataset1\\labels_preproc.csv"
     classes = ["Benign", "Malign"]
 
@@ -31,15 +31,15 @@ if __name__ == '__main__':
         {"regkey_read": 500},
         {"dll_loaded": 120},
         {"mutex": 100},
-        {"regkey_deleted": 500},
-        {"regkey_written": 500},
-        {"file_deleted": 500},
-        {"file_failed": 500},
-        {"file_read": 500},
-        {"file_opened": 500},
-        {"file_exists": 500},
-        {"file_written": 500},
-        {"file_created": 500}
+        {"regkey_deleted": 100},
+        {"regkey_written": 50},
+        {"file_deleted": 100},
+        {"file_failed": 50},
+        {"file_read": 50},
+        {"file_opened": 50},
+        {"file_exists": 50},
+        {"file_written": 50},
+        {"file_created": 50}
     ]
 
     names=[
@@ -59,7 +59,7 @@ if __name__ == '__main__':
            'File_Written',
            'File_Created'
            ]
-
+    # names = [list(x.keys())[0] for x in feature_maxlen]
 
     model_names = [f"neurlux_detection_{n}_{EPOCHS}_{TYPE_SPLIT}.h5" for n in names]
     test_acc = []
@@ -68,11 +68,13 @@ if __name__ == '__main__':
     if TYPE_FIGURE == 'roc_det':
         fig, axs = plt.subplots(1, 2, figsize=(15, 5))
     elif TYPE_FIGURE == 'roc':
-        fig_roc, ax_roc = plt.subplots(1, figsize=(10, 7))
+        fig_roc, ax_roc = plt.subplots(1, figsize=(15, 7))
     elif TYPE_FIGURE == 'det':
         fig_det, ax_det = plt.subplots(1, figsize=(10, 7))
-
-    for feat, name,model_name in zip(feature_maxlen, names,model_names):
+    colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple",
+              "tab:brown", "gold", "tab:gray", "tab:olive", "tab:cyan",
+              "black", "magenta", "navy", "lime", "darkgreen"]
+    for feat, name,model_name,color in zip(feature_maxlen, names,model_names,colors):
         MAXLEN = sum(feat.values())
 
         # Import data
@@ -117,12 +119,12 @@ if __name__ == '__main__':
 
         # Plot ROC and DET curves
         if TYPE_FIGURE == 'roc_det':
-            RocCurveDisplay.from_predictions(y_ts, scores, ax=axs[0], name=f'{name}')
-            DetCurveDisplay.from_predictions(y_ts, scores, ax=axs[1], name=f'{name}')
+            RocCurveDisplay.from_predictions(y_ts, scores, ax=axs[0], name=f'{name}',color=color)
+            DetCurveDisplay.from_predictions(y_ts, scores, ax=axs[1], name=f'{name}',color=color)
         elif TYPE_FIGURE == 'roc':
-            RocCurveDisplay.from_predictions(y_ts, scores, name=f'{name}', ax=ax_roc)
+            RocCurveDisplay.from_predictions(y_ts, scores, name=f'{name}', ax=ax_roc,color=color)
         elif TYPE_FIGURE == 'det':
-            DetCurveDisplay.from_predictions(y_ts, scores, name=f'{name}', ax=ax_det)
+            DetCurveDisplay.from_predictions(y_ts, scores, name=f'{name}', ax=ax_det,color=color)
 
     if TYPE_FIGURE == 'roc_det':
         axs[0].set_title("Receiver Operating Characteristic (ROC) curves")

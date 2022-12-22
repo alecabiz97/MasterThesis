@@ -20,29 +20,28 @@ if __name__ == '__main__':
     # Hyperparameters
     EMBEDDING_DIM = 256  # 256
     BATCH_SIZE = 50
-    EPOCHS = 15  # 30
+    EPOCHS = 30  # 30
     LEARNING_RATE = 0.0001
     TYPE_SPLIT = 'random'  # 'time' or 'random'
     SPLIT_DATE_VAL_TS = "2019-08-01"
     SPLIT_DATE_TR_VAL = "2019-05-01"
-    SUBSET_N_SAMPLES = 1000
-    TRAINING = False  # If True training the models, if False load the trained model
+    SUBSET_N_SAMPLES = None
+    TRAINING = True  # If True training the models, if False load the trained model
     meta_path = "..\\data\\Avast\\subset_100.csv"
     classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
 
-
     feature_maxlen = [
         {'keys': 500},
-        {'resolved_apis': 500},
-        {'executed_commands': 500},
-        {'write_keys': 500},
-        {'files': 500},
-        {'read_files': 500},
-        {'write_files': 500},
-        {'delete_keys': 500},
-        {'read_keys': 500},
-        {'delete_files': 500},
-        {'mutexes': 500},
+        {'resolved_apis': 200},
+        {'executed_commands': 20},
+        {'write_keys': 20},
+        {'files': 100},
+        {'read_files': 200},
+        {'write_files': 100},
+        {'delete_keys': 100},
+        {'read_keys': 250},
+        {'delete_files': 50},
+        {'mutexes': 20},
         # {'keys': 500,'resolved_apis': 500,'read_keys': 500,'files': 500},
     ]
     test_acc = []
@@ -55,7 +54,8 @@ if __name__ == '__main__':
         MAXLEN=sum(feat.values())
 
         # Import data
-        df = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES, feature_maxlen=feat)
+        df = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES, feature_maxlen=feat,
+                         callback = get_label_date_text_dataframe_avast)
         n_classes = len(classes)
 
         # Split Train-Test-Validation

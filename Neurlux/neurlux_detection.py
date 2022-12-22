@@ -44,25 +44,34 @@ if __name__ == '__main__':
 
     # Hyperparameters
     feature_maxlen = {
-        "apistats": 200, #200
-        # "apistats_opt": 200, #200
-        # "regkey_opened": 500, #500
-        # "regkey_read": 500,
+        # "apistats": 200, #200
+        "apistats_opt": 200, #200
+        "regkey_opened": 500, #500
+        "regkey_read": 500,
         # "dll_loaded": 120,
-        # "mutex": 100
+        # "mutex": 100,
+        #  "regkey_deleted": 100,
+        #  "regkey_written": 50,
+         # "file_deleted": 100,
+         # "file_failed": 50,
+         # "file_read": 50,
+         # "file_opened": 50,
+         # "file_exists": 50,
+         # "file_written": 50,
+         # "file_created": 50
     }
 
     MAXLEN = sum(feature_maxlen.values())
     EMBEDDING_DIM=256 # 256
     BATCH_SIZE = 50
-    EPOCHS = 15 # 30
+    EPOCHS = 20 # 30
     LEARNING_RATE = 0.0001
     TYPE_SPLIT='random' # 'time' or 'random'
     SPLIT_DATE_VAL_TS="2013-08-09"
     SPLIT_DATE_TR_VAL="2012-12-09"
     SUBSET_N_SAMPLES=None # if None takes all data
     WITH_ATTENTION=True
-    TRAINING=False
+    TRAINING=True
     meta_path="..\\data\\dataset1\\labels_preproc.csv"
     model_name="Neurlux_detection"
     classes = ["Benign", "Malign"]
@@ -136,7 +145,10 @@ if __name__ == '__main__':
 
     # hash = "00b26c8964bf6c20183d13867e6dbcb0"
     # hash = "00a0f5fe1ba0102ed789b2aa85c3e316"
-    hash = "1a9ab9e924a6856d642bbe88064e4236"
+    # hash = "1a9ab9e924a6856d642bbe88064e4236" # tesla-crypt
+    # hash = "000ed458b787e6841c103a694d11962c"
+    # hash = "000f6d35ea5397e40ffaa7931a9ae1d3"
+    hash = "00aae6c41996b3d1631f605ad783f1f8" #
 
     with open(f"..\\data\\dataset1\\mal_preproc\\{hash}.json", "r") as fp:
         data = json.load(fp)
@@ -157,8 +169,6 @@ if __name__ == '__main__':
         # y = y_ts.iloc[idx:idx + 1]
 
         # hash = "0fb068a699abfe607e4e9f99c1aad3ab"
-
-
         x = pd.Series(preprocessing_data(str(text)))
         x_tokens = tokenizer.texts_to_sequences(x)
         x_tokens = pad_sequences(x_tokens, maxlen=MAXLEN, padding='post')
@@ -187,7 +197,6 @@ if __name__ == '__main__':
     if SHAP:
         explainer = shap.KernelExplainer(model.predict, np.zeros((1,x_tr_tokens.shape[1])))
         # explainer = shap.KernelExplainer(model.predict, shap.sample(x_tr_tokens,100))
-
 
         sample = preprocessing_data(str(text))
         sample_tokens = tokenizer.texts_to_sequences([sample])
@@ -219,7 +228,7 @@ if __name__ == '__main__':
         # p = shap.force_plot(explainer.expected_value[0], shap_values[0], text)
         # p.matplotlib(figsize=(15, 5), show=True, text_rotation=None)
 
-        shap.summary_plot(shap_values[0], sample_tokens, feature_names=text, class_names=classes,plot_size=(10.,5.))
+        shap.summary_plot(shap_values[0], sample_tokens, feature_names=text, class_names=classes,plot_size=(20.,5.))
 
         # Dependence plot
         feature=text[np.argmax(shap_values[0])]

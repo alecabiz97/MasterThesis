@@ -27,7 +27,7 @@ THREADS = Threads.nthreads()
 PATH_BEN_REPORTS,PATH_MAL_REPORTS = "../data/dataset1/ben_preproc/","../data/dataset1/mal_preproc/"
 PATH_TO_LABELS = "../data/dataset1/labels_preproc.csv";
 epochs = 5 # 5
-split_choose="random" # 'time' or 'random'
+split_choose="time" # 'time' or 'random'
 minibatchsize = 50 # 50
 iterations = 200 # 200
 training=false # If true training the models, if false load the trained model
@@ -71,14 +71,27 @@ regop = map(jsons) do j  x = Dict("regkey_opened" => j["behavior"]["regkey_opene
 regre = map(jsons) do j x = Dict("regkey_read" => j["behavior"]["regkey_read"]) end
 mutex = map(jsons) do j x = Dict("mutex" => j["behavior"]["mutex"]) end
 
+regkey_deleted = map(jsons) do j x = Dict("regkey_deleted" => j["behavior"]["regkey_deleted"]) end
+regkey_written = map(jsons) do j x = Dict("regkey_written" => j["behavior"]["regkey_written"]) end
+file_deleted = map(jsons) do j x = Dict("file_deleted" => j["behavior"]["file_deleted"]) end
+file_failed = map(jsons) do j x = Dict("file_failed" => j["behavior"]["file_failed"]) end
+file_read = map(jsons) do j x = Dict("file_read" => j["behavior"]["file_read"]) end
+file_opened = map(jsons) do j x = Dict("file_opened" => j["behavior"]["file_opened"]) end
+file_exists = map(jsons) do j x = Dict("file_exists" => j["behavior"]["file_exists"]) end
+file_written = map(jsons) do j x = Dict("file_written" => j["behavior"]["file_written"]) end
+file_created = map(jsons) do j x = Dict("file_created" => j["behavior"]["file_created"]) end
+
+
+#=
 api_opt_regre = map(jsons) do j  x = Dict("apistats_opt" => j["behavior"]["apistats_opt"],
                                         "regkey_read" => j["behavior"]["regkey_read"]) end
 api_regre = map(jsons) do j  x = Dict("apistats" => j["behavior"]["apistats"],
                                             "regkey_read" => j["behavior"]["regkey_read"]) end
-
 api_dll_regre = map(jsons) do j  x = Dict("apistats" => j["behavior"]["apistats"],
                                         "dll_loaded" => j["behavior"]["dll_loaded"],
                                         "regkey_read" => j["behavior"]["regkey_read"]) end
+
+=#
 
 behavior=map(jsons) do j
     #delete!(j["behavior"],"apistats")
@@ -86,16 +99,15 @@ behavior=map(jsons) do j
 end
 
 
-features = [behavior,api,api_opt,regop,regre,dll,mutex]
-features_names = ["All","API","API_OPT","Regkey_Opened","Regkey_Read","DLL_Loaded","Mutex"]
-
-#features = [api,api_opt]
-#features_names = ["API","API_OPT"]
+features = [api,api_opt,regop,regre,dll,mutex,regkey_deleted,regkey_written,file_deleted,file_failed,file_read,file_opened,file_exists,file_written,file_created]
+features_names = ["API","API_OPT","Regkey_Opened","Regkey_Read","DLL_Loaded","Mutex","Regkey_Deleted","Regkey_Written","File_Deleted","File_Failed","File_Read","File_Opened","File_Exists","File_Written","File_Created"]
 
 #p = plot()
-p_roc=plot(title="Receiver Operating Characteristic")
-p_det=plot(title="Detection Error Tradeoff")
-colors=["#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b","#e377c2"]
+p_roc=plot(title="Receiver Operating Characteristic",size=(700,400))
+p_det=plot(title="Detection Error Tradeoff",size=(700,400))
+colors=["#045792","#d96000","#108010","#b30c0d","#72489a"
+        ,"#6d392e","#dbb500","#616161","#9a9c07","#009dae",
+        "#000000","#db00db","#000061","#00db00","#004600"]
 global j=1
 test_acc = []
 train_acc = []
@@ -166,7 +178,7 @@ for (jsons, name) in zip(features, features_names)
     
     # ROC
     plot!(p_roc,roc_curve.FPR,roc_curve.TPR,label = "$name (AUC: $(round(auc,digits = 2)))",color=colors[j], legend=:bottomright,xscale=:log10)
-    xlims!(1e-3, 1e+0)
+    xlims!(1e-2, 1e+0)
     xlabel!("False Positive Rate")
     ylabel!("True Positive Rate")
     xaxis!(widen=true)

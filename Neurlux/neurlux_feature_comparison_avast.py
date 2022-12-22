@@ -16,8 +16,8 @@ if __name__ == '__main__':
     SUBSET_N_SAMPLES = None
     WITH_ATTENTION = True
     TRAINING = False  # If True training the models, if False load the trained model
-    # meta_path = "..\\data\\Avast\\subset_100.csv"
-    meta_path = "..\\data\\Avast\\public_labels.csv"
+    meta_path = "..\\data\\Avast\\subset_100.csv"
+    # meta_path = "..\\data\\Avast\\public_labels.csv"
     classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
 
 
@@ -44,11 +44,8 @@ if __name__ == '__main__':
         MAXLEN=sum(feat.values())
 
         # Import data
-        start = time()
         df = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES, feature_maxlen=feat,
                                   callback = get_label_date_text_dataframe_avast)
-        end=time()
-        print(f"Time import: {(end-start)/60}")
         n_classes = len(classes)
 
         # Split Train-Test-Validation
@@ -62,7 +59,6 @@ if __name__ == '__main__':
         # Model definition
         model,_ = get_neurlux(vocab_size, EMBEDDING_DIM, MAXLEN,n_classes=n_classes,with_attention=WITH_ATTENTION)
         # print(model.summary())
-        start = time()
         if TRAINING:
             es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=10)
             mc = ModelCheckpoint(f"./trained_models/avast/{model_name}", monitor='val_accuracy', mode='max', verbose=1, save_best_only=True)
@@ -73,8 +69,7 @@ if __name__ == '__main__':
                                           verbose=1, callbacks=[es, mc])
         else:
             model.load_weights(f"./trained_models/avast/{model_name}")
-        end = time()
-        print(f"Time epoch: {(end - start) / 60}")
+
         # Test
         print("TEST")
 
