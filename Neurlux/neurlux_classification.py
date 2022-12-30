@@ -53,13 +53,13 @@ if __name__ == '__main__':
         'write_keys': 20,
         'files': 100,
         'read_files': 200,
-        "started_services":5,
-        "created_services":5,
         'write_files': 100,
         'delete_keys': 100,
         'read_keys': 250,
         'delete_files':50,
-        'mutexes': 20
+        'mutexes': 20,
+        # "started_services":5,
+        # "created_services":5,
     }
     MAXLEN = sum(feature_maxlen.values())
 
@@ -70,19 +70,19 @@ if __name__ == '__main__':
     TYPE_SPLIT='random' # 'time' or 'random'
     SPLIT_DATE_VAL_TS = "2019-08-01"
     SPLIT_DATE_TR_VAL = "2019-05-01"
-    SUBSET_N_SAMPLES=1000 # if None takes all data
+    SUBSET_N_SAMPLES=None # if None takes all data
     WITH_ATTENTION = True
-    TRAINING = True
+    TRAINING = False
     meta_path = "..\\data\\Avast\\subset_100.csv"
     model_name = "Neurlux_Avast"
     classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
 
-
     # Explanation
     SHAP=True
-    LIME_EXPLANATION = True
+    LIME = True
+    EXP_MODE = 'multi'  # single or multi
     TOPK_FEATURE = 10
-    N_SAMPLES_EXP = 1
+    N_SAMPLES_EXP = 2
 
     # Import data
     df = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES,feature_maxlen=feature_maxlen,
@@ -113,7 +113,6 @@ if __name__ == '__main__':
     else:
         model.load_weights(f"./trained_models/avast/{model_name}.h5")
 
-
     #Test
     print("TEST")
 
@@ -121,142 +120,83 @@ if __name__ == '__main__':
     print(f"Train accuracy: {model.evaluate(x_tr_tokens, np.array(y_tr),verbose=False)[1]}")
     print(f"Test accuracy: {model.evaluate(x_ts_tokens, np.array(y_ts),verbose=False)[1]}")
     # print(confusion_matrix(y_ts,y_pred))
-
     y_pred = np.argmax(model.predict(tf.constant(x_ts_tokens)), axis=1)
 
     # Confusion matrix
     plot_confusion_matrix(y_true=y_ts, y_pred=y_pred, classes=classes)
 
 # %% Explanation
-#     hash="f7a4a26c10c86ce3c1e9b606ed3e59c4c12758c24de95bd68016200b28e6b06b" # Emotet
-#     hash="6847bd9c431b65456654ce635ce365ca4c66bb056f648eab54e87ad7b7269c60" # Trickbot
-    hash="2e1640fb12cc66af4428e3e8e2a0de4d768f2e4085144a3f04aafc79fd53c38a" # Trickbot
-#     hash="1b6ca28027f62a4922348c55b891472c9530da1b0ab2af1ab615a491612bea01" # Trickbot
-#     hash="efb793eafd7993152fcb0075887584cd65bab183d0ebea0bbbcf05255c8be8db" # njRAT
-#     hash="32c58040d3d6ec5305a1a0ebb48ba05aebe3ac2f905a7f152f32fc9170e16711" # Trickbot
-    y_true="Trickbot"
-    idx_true=classes.index(y_true)
 
-    with open(f"..\\data\\Avast\\public_small_reports\\{hash}.json", "r") as fp:
-        data = json.load(fp)
+    hash="b773c3406e289cd100237bec78642bf0cbc95f0c408b20165cc3d02b89d35081" # Emotet
 
-    text = []
-    for feat in feature_maxlen.keys():
-        x = data["behavior"]['summary'][feat]
-        text.append(x[0:min(len(x), feature_maxlen[feat])])
+    #     hash="f7a4a26c10c86ce3c1e9b606ed3e59c4c12758c24de95bd68016200b28e6b06b" # Emotet
+    #     hash="6847bd9c431b65456654ce635ce365ca4c66bb056f648eab54e87ad7b7269c60" # Trickbot
+    #     hash="2e1640fb12cc66af4428e3e8e2a0de4d768f2e4085144a3f04aafc79fd53c38a" # Trickbot
+    #     hash="1b6ca28027f62a4922348c55b891472c9530da1b0ab2af1ab615a491612bea01" # Trickbot
+    #     hash="efb793eafd7993152fcb0075887584cd65bab183d0ebea0bbbcf05255c8be8db" # njRAT
+    #     hash="32c58040d3d6ec5305a1a0ebb48ba05aebe3ac2f905a7f152f32fc9170e16711" # Trickbot
+
+    y_true="Emotet"
 
     # LIME Explanation
-    if LIME_EXPLANATION:
-        # x = x_ts[0:N_SAMPLES_EXP]
-        # x_tokens = x_ts_tokens[0:N_SAMPLES_EXP]
-        # y = y_ts[0:N_SAMPLES_EXP]
+    if LIME:
 
-        # idx=1
-        # x = x_ts.iloc[idx:idx + 1]
-        # x_tokens = x_ts_tokens[idx:idx + 1]
-        # y = y_ts.iloc[idx:idx + 1]
+        if EXP_MODE == "single":
+            idx_true = np.array([classes.index(y_true)])
+            with open(f"..\\data\\Avast\\public_small_reports\\{hash}.json", "r") as fp:
+                data = json.load(fp)
 
-        x = pd.Series(preprocessing_data(str(text)))
-        x_tokens = tokenizer.texts_to_sequences(x)
-        x_tokens = pad_sequences(x_tokens, maxlen=MAXLEN, padding='post')
-        y = pd.Series(idx_true)
+            text = []
+            for feat in feature_maxlen.keys():
+                x = data["behavior"]['summary'][feat]
+                text.append(x[0:min(len(x), feature_maxlen[feat])])
 
-        explanations = lime_explanation_avast(x=x, x_tokens=x_tokens, y=y, model=model,tokenizer=tokenizer,
+            x = pd.Series(preprocessing_data(str(text)))
+            x_tokens = tokenizer.texts_to_sequences(x)
+            x_tokens = pad_sequences(x_tokens, maxlen=MAXLEN, padding='post')
+            y = pd.Series(idx_true)
+        elif EXP_MODE == "multi":
+            x = x_ts[0:N_SAMPLES_EXP]
+            x_tokens = x_ts_tokens[0:N_SAMPLES_EXP]
+            y = y_ts[0:N_SAMPLES_EXP]
+
+        top_feat_dict = lime_explanation_avast(x=x, x_tokens=x_tokens, y=y, model=model,tokenizer=tokenizer,
                                               feature_maxlen=feature_maxlen,classes=classes,
-                                              num_features=TOPK_FEATURE, feature_stats=False)
+                                              num_features=TOPK_FEATURE, save_html=False)
 
-        # top_feat_lime=[val[0] for val in explanation.as_list(label=explanation.available_labels()[0])]
-        top_feat_lime = [[val[0] for val in exp.as_list(label=exp.available_labels()[0])] for exp in explanations]
-
-        # Attention
-        # if WITH_ATTENTION:
-        #     top_feat_att = get_top_feature_attention(attention_model, tokenizer, x_tokens, topk=TOPK_FEATURE)
-        #
-        #     for i in range(N_SAMPLES_EXP):
-        #         cnt = 0
-        #         for val in top_feat_att[i]:
-        #             if val in top_feat_lime[i]:
-        #                 # print(val)
-        #                 cnt += 1
-        #         print(f"[Sample {i}] Common feature Attention/LIME: {cnt}/{TOPK_FEATURE}\n")
+        print_top_feature_avast(top_feat_dict)
 
 
 # %%
     if SHAP:
         explainer = shap.KernelExplainer(model.predict, np.zeros((1,x_ts_tokens.shape[1])))
-        # explainer = shap.KernelExplainer(model.predict, x_tr_tokens)
+        # explainer = shap.KernelExplainer(model.predict,  shap.sample(x_tr_tokens,10))
 
-        # d={k:[] for k in classes}
-        # for idx in range(100):
+        if EXP_MODE == "single":
+            idx_true = np.array([classes.index(y_true)])
+            with open(f"..\\data\\Avast\\public_small_reports\\{hash}.json", "r") as fp:
+                data = json.load(fp)
 
-        # idx=11
-        # sample=x_tr.iloc[idx]
-        # sample_tokens=x_tr_tokens[idx:idx+1]
-        # idx_true=y_tr.iloc[idx]
-        # y_true = classes[idx_true]
+            text = []
+            for feat in feature_maxlen.keys():
+                x = data["behavior"]['summary'][feat]
+                text.append(x[0:min(len(x), feature_maxlen[feat])])
+            sample = preprocessing_data(str(text))
+            sample_tokens = tokenizer.texts_to_sequences([sample])
+            sample_tokens = pad_sequences(sample_tokens, maxlen=MAXLEN, padding='post')
 
-        sample = preprocessing_data(str(text))
-        sample_tokens = tokenizer.texts_to_sequences([sample])
-        sample_tokens = pad_sequences(sample_tokens, maxlen=MAXLEN, padding='post')
+        elif EXP_MODE == "multi":
 
-        id_pred = np.argmax(model.predict(tf.constant(sample_tokens)), axis=1)[0]
-        y_pred = classes[id_pred]
-
-        print(f"True ({idx_true}): {y_true}")
-        print(f"Predicted: {y_pred}")
-
-        shap_values = explainer.shap_values(sample_tokens, nsamples='auto')
-        # shap.initjs()
-
-        text = []
-        for i in sample_tokens[0]:
-            if i != 0:
-                text.append(tokenizer.index_word[i])
-            else:
-                text.append("PAD")
-        print(sample)
-        print(text)
-
-        # Summary plot
-        shap.summary_plot(shap_values, sample_tokens,feature_names=text,class_names=classes,plot_size=(20.,5.))
-
-        # fig, ax = plt.subplots(1, figsize=(10, 5))
-        shap.summary_plot(shap_values[id_pred], sample_tokens, feature_names=text, plot_size=(20., 5.))
-        # fig, ax = plt.subplots(1, figsize=(10, 5))
-        # shap.dependence_plot(1, shap_values[0], sample_tokens, feature_names=text, ax=ax)
-
-        # Dependence plot
-        # feature = text[np.argmax(shap_values[idx_true])]
-        # id = tokenizer.word_index[feature]
-        # def f(x):
-        #     scores=model.predict(x,verbose=False)
-        #     # return scores.flatten()[idx_true]
-        #     return np.argmax(scores)
-        #
-        # fig, ax = plt.subplots(1, figsize=(10, 5))
-        # shap.partial_dependence_plot(feature, f, sample_tokens, ice=False,
-        #                              model_expected_value=True, feature_expected_value=True, feature_names=text,ylabel="Class ID",
-        #                              xmin=id-500, xmax=id + 500,ax=ax)
+            sample = x_ts.iloc[0:0 + N_SAMPLES_EXP]
+            sample_tokens = x_ts_tokens[0:0 + N_SAMPLES_EXP]
+            idx_true = y_ts.iloc[0:0 + N_SAMPLES_EXP].values
 
 
-        # id_pred=np.argmax(model.predict(tf.constant(sample_tokens)), axis=1)[0]
-        # top_k=np.argsort(shap_values[id_pred].flatten())[::-1][0:5]
-        #
-        # if y_pred == y_true:
-        #     d[y_pred].extend(top_k)
+        top_feat_dict=shap_explanation_avast(explainer=explainer, sample_tokens=sample_tokens, classes=classes,
+                               tokenizer=tokenizer, model=model, idx_true=idx_true, summary_plot_feat=False,
+                               summary_plot=False, dependence_plot=False)
 
-    # for k,val in d.items():
-    #     c=Counter(val)
-    #     print(f"{k} - n example: {int(len(val)/5)}")
-    #     for el,n in c.most_common(5):
-    #         print(f"    {text[el]}: {n}")
-
-
-
-
-        # p = shap.force_plot(explainer.expected_value[0], shap_values[0][0], text)
-        # p.matplotlib(figsize=(20, 5), show=True, text_rotation=None)
-
+        print_top_feature_avast(top_feat_dict)
 
 
 # %% Check feature max len
