@@ -77,7 +77,7 @@ def lime_explanation_dataset1(x,x_tokens,y,model,tokenizer,feature_maxlen,classe
 
     MAXLEN = sum(feature_maxlen.values())
 
-    exps=[]
+    top_feat_dict = {x: {} for x in classes}
     for idx in range(len(y)):
         sample = x.iloc[idx]
         y_sample = y.iloc[idx]
@@ -87,13 +87,16 @@ def lime_explanation_dataset1(x,x_tokens,y,model,tokenizer,feature_maxlen,classe
         print(f"Predicted: {classes[y_pred]}")
         explainer = lime_text.LimeTextExplainer(class_names=classes)
         explanation = explainer.explain_instance(sample, classifier_fn=predict_proba, num_features=num_features, top_labels=1)
-        exps.append(deepcopy(explanation))
 
+        for val, score in explanation.as_list(label=explanation.available_labels()[0]):
+            top_feat_dict[classes[y_pred]][val] = top_feat_dict[classes[y_pred]][val] + 1 if val in top_feat_dict.keys() else 1
+
+        # exps.append(deepcopy(explanation))
         if save_html:
             explanation.save_to_file(f'exp_{idx}.html')
             print("Explanation file created")
 
-    return exps
+    return top_feat_dict
 
 # SHAP
 def shap_explanation_avast(explainer,sample_tokens,classes,tokenizer,model,idx_true,summary_plot_feat=True,
@@ -156,69 +159,58 @@ def shap_explanation_avast(explainer,sample_tokens,classes,tokenizer,model,idx_t
 
     return top_feat_dict
 
-def shap_explanation_dataset1(explainer,sample_tokens,text,classes,tokenizer,model,summary_plot=True,dependence_plot=True,
+def shap_explanation_dataset1(explainer,sample_tokens,id_true,classes,tokenizer,model,summary_plot=True,dependence_plot=True,
                               topk=10):
-    # Single sample
-    if sample_tokens.shape[0] == 1:
-        shap_values = explainer.shap_values(sample_tokens, nsamples="auto")
+    # scores = model.predict(tf.constant(sample_tokens), verbose=False).squeeze()
+    ids_pred = [round(i[0]) for i in model.predict(tf.constant(sample_tokens), verbose=False)]
+
+    text = []
+    for idx in range(sample_tokens.shape[0]):
+        tmp = []
+        for i in sample_tokens[idx]:
+            if i != 0:
+                tmp.append(tokenizer.index_word[i])
+            else:
+                tmp.append("PAD")
+        text.append(tmp)
+
+    shap_values = explainer.shap_values(sample_tokens, nsamples="auto")
+    top_feat = np.argsort(shap_values[0])[:, ::-1][:, 0:topk]
+
+    top_feat_dict={x:{} for x in classes}
+    for i in range(len(text)):
+        id_pred=ids_pred[i]
+        words = np.array(text[i])
+        top_idx = top_feat[i, :]
+        top_shap_values = shap_values[0][i, :][top_idx]
+        top_feature = words[top_idx]
+
+        for val, score in zip(top_feature, top_shap_values):
+            # print(f"     {val}: {np.round(score, 4)}")
+            # top_feat_dict[classes[id_pred]][val] = top_feat_dict[classes[id_pred]][val] + 1 if val in top_feat_dict.keys() else 1
+            top_feat_dict[classes[id_pred]][val] = top_feat_dict[classes[id_pred]][val] + score if val in top_feat_dict.keys() else score
 
         # Summary plot
         if summary_plot:
-            shap.summary_plot(shap_values[0], sample_tokens, feature_names=text, class_names=classes,
-                              plot_size=(10., 5.))
+            shap.summary_plot(np.expand_dims(shap_values[0][i, :], axis=0),
+                              np.expand_dims(sample_tokens[i, :], axis=0),
+                              feature_names=text[i], class_names=classes, plot_size=(10., 5.))
 
         # Dependence plot
         if dependence_plot:
-            feature = text[np.argmax(shap_values[0])]
+            feature = str(top_feature[0])
             id = tokenizer.word_index[feature]
 
+            def f(x):
+                scores = model.predict(x, verbose=False)
+                return np.argmax(scores)
+
             fig, ax = plt.subplots(1, figsize=(10, 5))
-            shap.partial_dependence_plot(feature, model.predict, sample_tokens, ice=False,
-                                         model_expected_value=True, feature_expected_value=True, feature_names=text,
-                                         xmin=id - 10, xmax=id + 10, ax=ax)
-            print(model.predict(sample_tokens))
-
-    # Multiple sample
-    elif sample_tokens.shape[0] > 1:
-        shap_values = explainer.shap_values(sample_tokens, nsamples="auto")
-        top_feat = np.argsort(shap_values[0])[:, ::-1][:, 0:topk]
-
-        top_feat_dict={}
-        for i in range(len(text)):
-            words = np.array(text[i])
-            top_idx = top_feat[i, :]
-            top_shap_values = shap_values[0][i, :][top_idx]
-            top_feature = words[top_idx]
-
-            # print(f"Sample {i}")
-            for val, score in zip(top_feature, top_shap_values):
-                # print(f"     {val}: {np.round(score, 4)}")
-                top_feat_dict[val] = top_feat_dict[val] + 1 if val in top_feat_dict.keys() else 1
-
-            # Summary plot
-            if summary_plot:
-                shap.summary_plot(np.expand_dims(shap_values[0][i, :], axis=0),
-                                  np.expand_dims(sample_tokens[i, :], axis=0),
-                                  feature_names=text[i], class_names=classes, plot_size=(10., 5.))
-
-            # Dependence plot
-            if dependence_plot:
-                feature = str(top_feature[0])
-                id = tokenizer.word_index[feature]
-
-                def f(x):
-                    scores = model.predict(x, verbose=False)
-                    return np.argmax(scores)
-
-                fig, ax = plt.subplots(1, figsize=(10, 5))
-                shap.partial_dependence_plot(feature, f, np.expand_dims(sample_tokens[i, :], axis=0), ice=False,
-                                             model_expected_value=True, feature_expected_value=True, feature_names=text[i],
-                                             ylabel="Class ID",
-                                             xmin=id - 500, xmax=id + 500, ax=ax)
-
-        # Print most frequents feature
-        for k in sorted(top_feat_dict,key=top_feat_dict.get,reverse=True)[0:10]:
-            print(k,top_feat_dict[k])
+            shap.partial_dependence_plot(feature, f, np.expand_dims(sample_tokens[i, :], axis=0), ice=False,
+                                         model_expected_value=True, feature_expected_value=True, feature_names=text[i],
+                                         ylabel="Class ID",
+                                         xmin=id - 50, xmax=id + 50, ax=ax)
+    return top_feat_dict
 
 
 def print_top_feature_avast(top_feat_dict):
@@ -252,6 +244,39 @@ def print_top_feature_avast(top_feat_dict):
     print("\nTop Feature distribution")
     for k, val in d.items():
         print(f"{k}: {val}")
+
+def print_top_feature_dataset1(top_feat_dict):
+    with open("../data/dataset1/dataset1_feature_set.json", "r") as fp:
+        feature_set = json.load(fp)
+    d = {"reg": 0, "api": 0, "api_opt": 0, "files": 0, "mutex": 0, "dll_loaded": 0}
+
+    for label in top_feat_dict.keys():
+        print(label)
+        for k in sorted(top_feat_dict[label], key=top_feat_dict[label].get, reverse=True)[0:20]:
+            print(f"    {k}: {top_feat_dict[label][k]}")
+
+            if k in feature_set["apistats"]:
+                d["api"] += 1
+            elif k in feature_set["apistats_opt"]:
+                d["api_opt"] += 1
+            elif k in feature_set["mutex"]:
+                d["mutex"] += 1
+            elif k in feature_set["dll_loaded"]:
+                d["dll_loaded"] += 1
+            elif (k in feature_set["regkey_opened"]) or (k in feature_set["regkey_read"]) or \
+                    (k in feature_set["regkey_deleted"]) or (k in feature_set["regkey_written"]):
+                d["reg"] += 1
+            elif (k in feature_set["file_deleted"]) or (k in feature_set["file_failed"]) or \
+                    (k in feature_set["file_read"]) or (k in feature_set["file_opened"]) or \
+                    (k in feature_set["file_exists"]) or (k in feature_set["file_written"]) or \
+                    (k in feature_set["file_created"]):
+                d["files"] += 1
+            else:
+                print(k)
+
+    print("\nTop Feature distribution")
+    for k, val in d.items():
+        print(f"    {k}: {val}")
 
 # Transformer layers
 class TransformerBlock(layers.Layer):
