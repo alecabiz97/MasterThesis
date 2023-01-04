@@ -1,6 +1,7 @@
 import warnings
 
 import numpy as np
+import pandas as pd
 from keras.layers import Activation, LSTM, Bidirectional, Dense, Dropout, Input,Embedding, Conv1D,MaxPooling1D,CuDNNLSTM
 import keras.backend as K
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -65,16 +66,17 @@ if __name__ == '__main__':
 
     EMBEDDING_DIM=256 # 256
     BATCH_SIZE = 50
-    EPOCHS = 20 # 10
+    EPOCHS = 30 # 10
     LEARNING_RATE = 0.0001
     TYPE_SPLIT='random' # 'time' or 'random'
-    SPLIT_DATE_VAL_TS = "2019-08-01"
+    SPLIT_DATE_VAL_TS = "2019-07-01"
     SPLIT_DATE_TR_VAL = "2019-05-01"
     SUBSET_N_SAMPLES=None # if None takes all data
     WITH_ATTENTION = True
     TRAINING = False
     meta_path = "..\\data\\Avast\\subset_100.csv"
-    model_name = "Neurlux_Avast"
+    # model_name = "Neurlux_Avast"
+    model_name = f"neurlux_avast_all_{EPOCHS}_{TYPE_SPLIT}"
     classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
 
     # Explanation
@@ -82,7 +84,8 @@ if __name__ == '__main__':
     LIME = True
     EXP_MODE = 'multi'  # single or multi
     TOPK_FEATURE = 10
-    N_SAMPLES_EXP = 2
+    N_SAMPLES_EXP = 10
+    SAVE_EXP_DICT=True
 
     # Import data
     df = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES,feature_maxlen=feature_maxlen,
@@ -156,15 +159,40 @@ if __name__ == '__main__':
             x_tokens = pad_sequences(x_tokens, maxlen=MAXLEN, padding='post')
             y = pd.Series(idx_true)
         elif EXP_MODE == "multi":
-            x = x_ts[0:N_SAMPLES_EXP]
-            x_tokens = x_ts_tokens[0:N_SAMPLES_EXP]
-            y = y_ts[0:N_SAMPLES_EXP]
 
-        top_feat_dict = lime_explanation_avast(x=x, x_tokens=x_tokens, y=y, model=model,tokenizer=tokenizer,
+            # Subset
+            x=[]
+            x_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]))
+            y = np.zeros(shape=(N_SAMPLES_EXP * len(classes)), dtype=int)
+            for i in range(len(classes)):
+                idx = (y_ts == i).to_numpy()
+                x_tokens[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP, :] = x_ts_tokens[idx, :][0:N_SAMPLES_EXP,:]
+                y[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP] = y_ts.values[idx][0:N_SAMPLES_EXP]
+                x.extend(x_ts.values[idx][0:N_SAMPLES_EXP].tolist())
+
+            x=pd.Series(x)
+            y=pd.Series(y.tolist())
+
+            # x = x_ts[0:N_SAMPLES_EXP]
+            # x_tokens = x_ts_tokens[0:N_SAMPLES_EXP]
+            # y = y_ts[0:N_SAMPLES_EXP]
+
+            print(y.shape, x_tokens.shape)
+
+        top_feat_dict_lime = lime_explanation_avast(x=x, x_tokens=x_tokens, y=y, model=model,tokenizer=tokenizer,
                                               feature_maxlen=feature_maxlen,classes=classes,
                                               num_features=TOPK_FEATURE, save_html=False)
 
-        print_top_feature_avast(top_feat_dict)
+        # Save top feat dict
+        if SAVE_EXP_DICT:
+            with open(f"top_feat_dict_lime_{model_name}.json", "w") as outfile:
+                json.dump(top_feat_dict_lime, outfile, indent=4)
+
+        # Load top feat dict
+        # with open(f"top_feat_dict_lime_{model_name}.json", "r") as outfile:
+        #     top_feat_dict_lime = json.load(outfile)
+
+        print_top_feature_avast(top_feat_dict_lime)
 
 
 # %%
@@ -187,16 +215,36 @@ if __name__ == '__main__':
 
         elif EXP_MODE == "multi":
 
-            sample = x_ts.iloc[0:0 + N_SAMPLES_EXP]
-            sample_tokens = x_ts_tokens[0:0 + N_SAMPLES_EXP]
-            idx_true = y_ts.iloc[0:0 + N_SAMPLES_EXP].values
+            # Subset
+            sample_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]))
+            idx_true = np.zeros(shape=(N_SAMPLES_EXP * len(classes)),dtype=int)
+            for i in range(len(classes)):
+                idx = (y_ts == i).to_numpy()
+                sample_tokens[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP, :] = x_ts_tokens[idx, :][0:N_SAMPLES_EXP, :]
+                idx_true[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP] = y_ts.values[idx][0:N_SAMPLES_EXP]
 
+            print(idx_true.shape, sample_tokens.shape)
 
-        top_feat_dict=shap_explanation_avast(explainer=explainer, sample_tokens=sample_tokens, classes=classes,
-                               tokenizer=tokenizer, model=model, idx_true=idx_true, summary_plot_feat=False,
-                               summary_plot=False, dependence_plot=False)
+            # sample = x_ts.iloc[0:0 + N_SAMPLES_EXP]
+            # sample_tokens = x_ts_tokens[0:0 + N_SAMPLES_EXP]
+            # idx_true = y_ts.iloc[0:0 + N_SAMPLES_EXP].values
 
-        print_top_feature_avast(top_feat_dict)
+        top_feat_dict_shap = shap_explanation_avast(explainer=explainer, sample_tokens=sample_tokens,
+                                                    classes=classes,
+                                                    tokenizer=tokenizer, model=model, idx_true=idx_true,
+                                                    summary_plot_feat=False,
+                                                    summary_plot=False, dependence_plot=False)
+
+        # Save top feat dict
+        if SAVE_EXP_DICT:
+            with open(f"top_feat_dict_shap_{model_name}.json", "w") as outfile:
+                json.dump(top_feat_dict_shap, outfile,indent = 4)
+
+        # Load top feat dict
+        # with open(f"top_feat_dict_shap_{model_name}.json", "r") as outfile:
+        #     top_feat_dict_shap=json.load(outfile)
+
+        print_top_feature_avast(top_feat_dict_shap)
 
 
 # %% Check feature max len

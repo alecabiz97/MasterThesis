@@ -3,6 +3,7 @@ from sklearn.metrics import confusion_matrix, roc_curve, roc_auc_score, plot_roc
     classification_report, RocCurveDisplay, DetCurveDisplay
 import tensorflow as tf
 from keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 from utils import *
 
 from keras import layers
@@ -32,33 +33,44 @@ if __name__ == '__main__':
 
     # Hyperparameters
     feature_maxlen = {
-        "apistats": 200,
-        # "apistats_opt": 200,
-        # "regkey_opened": 500,
-        # "regkey_read": 500,
-        # "dll_loaded": 120,
-        # "mutex": 100
+        "apistats": 200,  # 200
+        "apistats_opt": 200,  # 200
+        "regkey_opened": 500,  # 500
+        "regkey_read": 500,
+        "dll_loaded": 120,
+        "mutex": 100,
+        "regkey_deleted": 100,
+        "regkey_written": 50,
+        "file_deleted": 100,
+        "file_failed": 50,
+        "file_read": 50,
+        "file_opened": 50,
+        "file_exists": 50,
+        "file_written": 50,
+        "file_created": 50
     }
 
     MAXLEN = sum(feature_maxlen.values())
     EMBEDDING_DIM=256 # 256
-    BATCH_SIZE = 50
-    EPOCHS = 1 # 30
+    BATCH_SIZE = 5
+    EPOCHS = 30 # 30
     LEARNING_RATE = 0.0001
     TYPE_SPLIT='random' # 'time' or 'random'
     SPLIT_DATE_VAL_TS = "2013-08-09"
     SPLIT_DATE_TR_VAL = "2012-12-09"
     SUBSET_N_SAMPLES=None # if None takes all data
-    TRAINING=True
+    TRAINING=False
     meta_path="..\\data\\dataset1\\labels_preproc.csv"
-    model_name="Transformer_detection"
+    # model_name="Transformer_detection"
+    model_name=f"transformer_detection_all_{EPOCHS}_{TYPE_SPLIT}"
     classes = ["Benign", "Malign"]
 
-
     # Explanation
-    LIME_EXPLANATION = False
-    TOPK_FEATURE=10
-    N_SAMPLES_EXP=1
+    SHAP = False
+    LIME = False
+    EXP_MODE = 'single'  # single or multi
+    TOPK_FEATURE = 10
+    N_SAMPLES_EXP = 4
 
     # Import data
     df = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES,feature_maxlen=feature_maxlen,
@@ -97,12 +109,12 @@ if __name__ == '__main__':
     print("TEST")
 
     # print(classification_report(y_pred, y_ts))
-    print(f"Train accuracy: {model.evaluate(x_tr_tokens, np.array(y_tr), verbose=False)[1]}")
-    print(f"Test accuracy: {model.evaluate(x_ts_tokens, np.array(y_ts),verbose=False)[1]}")
+    print(f"Train accuracy: {model.evaluate(x_tr_tokens, np.array(y_tr), verbose=False,batch_size=BATCH_SIZE)[1]}")
+    print(f"Test accuracy: {model.evaluate(x_ts_tokens, np.array(y_ts),verbose=False,batch_size=BATCH_SIZE)[1]}")
 
     # print(confusion_matrix(y_ts,y_pred))
 
-    scores=model.predict(tf.constant(x_ts_tokens),verbose=False).squeeze()
+    scores=model.predict(tf.constant(x_ts_tokens),verbose=False,batch_size=BATCH_SIZE).squeeze()
     y_pred=scores.round().astype(int)
 
     #fig, axs = plt.subplots(1, 2, figsize=(15, 5))
@@ -123,19 +135,86 @@ if __name__ == '__main__':
     # Confusion matrix
     plot_confusion_matrix(y_true=y_ts, y_pred=y_pred, classes=classes)
 
+    # %% Explanation
+
     # LIME Explanation
-    if LIME_EXPLANATION:
-        x=x_ts[0:N_SAMPLES_EXP]
-        x_tokens=x_ts_tokens[0:N_SAMPLES_EXP]
-        y=y_ts[0:N_SAMPLES_EXP]
+    if LIME:
 
-        explanations = lime_explanation_dataset1(x=x, x_tokens=x_tokens, y=y, model=model,tokenizer=tokenizer,
-                                                 feature_maxlen=feature_maxlen,classes=classes,
-                                                 num_features=TOPK_FEATURE, feature_stats=True)
+        if EXP_MODE == "single":
+            hash = "00aae6c41996b3d1631f605ad783f1f8"
+            # hash = "00b26c8964bf6c20183d13867e6dbcb0"
+            # hash = "00a0f5fe1ba0102ed789b2aa85c3e316"
+            # hash = "1a9ab9e924a6856d642bbe88064e4236" # tesla-crypt
+            # hash = "000ed458b787e6841c103a694d11962c"
+            # hash = "000f6d35ea5397e40ffaa7931a9ae1d3"
 
-        # top_feat_lime=[val[0] for val in explanation.as_list(label=explanation.available_labels()[0])]
-        top_feat_lime = [[val[0] for val in exp.as_list(label=exp.available_labels()[0])] for exp in explanations]
+            with open(f"..\\data\\dataset1\\mal_preproc\\{hash}.json", "r") as fp:
+                data = json.load(fp)
 
+            text = []
+            for feat in feature_maxlen.keys():
+                x = data["behavior"][feat]
+                text.append(x[0:min(len(x), feature_maxlen[feat])])
+
+                x = pd.Series(preprocessing_data(str(text)))
+                x_tokens = tokenizer.texts_to_sequences(x)
+                x_tokens = pad_sequences(x_tokens, maxlen=MAXLEN, padding='post')
+                y = pd.Series(1)
+
+        elif EXP_MODE == "multi":
+            x = x_ts[0:N_SAMPLES_EXP]
+            x_tokens = x_ts_tokens[0:N_SAMPLES_EXP]
+            y = y_ts[0:N_SAMPLES_EXP]
+
+        top_feat_dict = lime_explanation_dataset1(x=x, x_tokens=x_tokens, y=y, model=model, tokenizer=tokenizer,
+                                                  feature_maxlen=feature_maxlen, classes=classes,
+                                                  num_features=TOPK_FEATURE, save_html=False)
+
+        # Print most frequents feature
+        print("\nLIME RESULTS")
+        print_top_feature_dataset1(top_feat_dict)
+
+    # %% SHAP Explanation
+    if SHAP:
+        explainer = shap.KernelExplainer(model.predict, np.zeros((1, x_tr_tokens.shape[1])))
+        # explainer = shap.KernelExplainer(model.predict, shap.sample(x_tr_tokens,100))
+
+        if EXP_MODE == "single":
+            hash = "00aae6c41996b3d1631f605ad783f1f8"
+            # hash = "00b26c8964bf6c20183d13867e6dbcb0"
+            # hash = "00a0f5fe1ba0102ed789b2aa85c3e316"
+            # hash = "1a9ab9e924a6856d642bbe88064e4236" # tesla-crypt
+            # hash = "000ed458b787e6841c103a694d11962c"
+            # hash = "000f6d35ea5397e40ffaa7931a9ae1d3"
+
+            with open(f"..\\data\\dataset1\\mal_preproc\\{hash}.json", "r") as fp:
+                data = json.load(fp)
+
+            text = []
+            for feat in feature_maxlen.keys():
+                x = data["behavior"][feat]
+                text.append(x[0:min(len(x), feature_maxlen[feat])])
+
+            sample = preprocessing_data(str(text))
+            sample_tokens = tokenizer.texts_to_sequences([sample])
+            sample_tokens = pad_sequences(sample_tokens, maxlen=MAXLEN, padding='post')
+            # y_true="Malign"
+            id_true = np.array(1)
+
+        elif EXP_MODE == "multi":
+            sample = x_ts.iloc[0:0 + N_SAMPLES_EXP]
+            sample_tokens = x_ts_tokens[0:0 + N_SAMPLES_EXP]
+            id_true = y_ts.iloc[0:0 + N_SAMPLES_EXP].values
+
+        top_feat_dict = shap_explanation_dataset1(explainer=explainer, sample_tokens=sample_tokens, id_true=id_true,
+                                                  classes=classes,
+                                                  tokenizer=tokenizer, model=model, summary_plot=False,
+                                                  dependence_plot=False,
+                                                  topk=TOPK_FEATURE)
+
+        # Print most frequents feature
+        print("\nSHAP RESULTS")
+        print_top_feature_dataset1(top_feat_dict)
 # %% Create a json file with dataset1 feature set
 # def get_feature_set(meta_path):
 #     meta = pd.read_csv(meta_path)

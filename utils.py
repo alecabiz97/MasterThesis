@@ -22,12 +22,12 @@ import shap
 
 
 # LIME
-def lime_explanation_avast(x,x_tokens,y,model,tokenizer,feature_maxlen,classes,num_features,save_html=False):
+def lime_explanation_avast(x,x_tokens,y,model,tokenizer,feature_maxlen,classes,num_features,batch_size=None,save_html=False):
 
     def predict_proba(sample):
         x = tokenizer.texts_to_sequences(sample)
         x = pad_sequences(x, maxlen=MAXLEN, padding='post')
-        scores = model.predict(x)
+        scores = model.predict(x,batch_size=batch_size)
 
         return scores
 
@@ -44,14 +44,14 @@ def lime_explanation_avast(x,x_tokens,y,model,tokenizer,feature_maxlen,classes,n
         sample = x.iloc[idx]
         y_sample = y.iloc[idx]
         # print(f"Idx: {idx}")
-        y_pred = np.argmax(model.predict(tf.constant([x_tokens[idx]])).squeeze())
+        y_pred = np.argmax(model.predict(tf.constant([x_tokens[idx]]),batch_size=batch_size).squeeze())
         print(f"Sample {idx+1}/{len(y)}")
         print(f"    Label sample: {classes[y_sample]}")
         print(f"    Predicted: {classes[y_pred]}")
         explainer = lime_text.LimeTextExplainer(class_names=classes)
         explanation = explainer.explain_instance(sample, classifier_fn=predict_proba, num_features=num_features, top_labels=1)
         for val, score in explanation.as_list(label=explanation.available_labels()[0]):
-            top_feat_dict[classes[y_pred]][val] = top_feat_dict[classes[y_pred]][val] + 1 if val in top_feat_dict.keys() else 1
+            top_feat_dict[classes[y_pred]][val] = top_feat_dict[classes[y_pred]][val] + 1 if val in top_feat_dict[classes[y_pred]].keys() else 1
 
         # exps.append(deepcopy(explanation))
 
@@ -61,13 +61,13 @@ def lime_explanation_avast(x,x_tokens,y,model,tokenizer,feature_maxlen,classes,n
 
     return top_feat_dict
 
-def lime_explanation_dataset1(x,x_tokens,y,model,tokenizer,feature_maxlen,classes,num_features,save_html=True):
+def lime_explanation_dataset1(x,x_tokens,y,model,tokenizer,feature_maxlen,classes,num_features,batch_size=None,save_html=True):
 
     def predict_proba(sample):
         x = tokenizer.texts_to_sequences(sample)
         x = pad_sequences(x, maxlen=MAXLEN, padding='post')
 
-        scores_tmp = model.predict(x)
+        scores_tmp = model.predict(x,batch_size=batch_size)
         scores = []
         for val in scores_tmp:
             scores.append([1 - val[0], val[0]])
@@ -82,14 +82,14 @@ def lime_explanation_dataset1(x,x_tokens,y,model,tokenizer,feature_maxlen,classe
         sample = x.iloc[idx]
         y_sample = y.iloc[idx]
         # print(f"Idx: {idx}")
-        y_pred = model.predict(tf.constant([x_tokens[idx]])).squeeze().round().astype(int)
+        y_pred = model.predict(tf.constant([x_tokens[idx]]),batch_size=batch_size).squeeze().round().astype(int)
         print(f"Label sample: {classes[y_sample]}")
         print(f"Predicted: {classes[y_pred]}")
         explainer = lime_text.LimeTextExplainer(class_names=classes)
         explanation = explainer.explain_instance(sample, classifier_fn=predict_proba, num_features=num_features, top_labels=1)
 
         for val, score in explanation.as_list(label=explanation.available_labels()[0]):
-            top_feat_dict[classes[y_pred]][val] = top_feat_dict[classes[y_pred]][val] + 1 if val in top_feat_dict.keys() else 1
+            top_feat_dict[classes[y_pred]][val] = top_feat_dict[classes[y_pred]][val] + 1 if val in  top_feat_dict[classes[y_pred]] else 1
 
         # exps.append(deepcopy(explanation))
         if save_html:
@@ -99,10 +99,10 @@ def lime_explanation_dataset1(x,x_tokens,y,model,tokenizer,feature_maxlen,classe
     return top_feat_dict
 
 # SHAP
-def shap_explanation_avast(explainer,sample_tokens,classes,tokenizer,model,idx_true,summary_plot_feat=True,
+def shap_explanation_avast(explainer,sample_tokens,classes,tokenizer,model,idx_true,batch_size=None,summary_plot_feat=True,
                            summary_plot=True,dependence_plot=True,topk=10):
 
-    ids_pred=np.argmax(model.predict(tf.constant(sample_tokens)), axis=1)
+    ids_pred=np.argmax(model.predict(tf.constant(sample_tokens),batch_size=batch_size), axis=1)
 
     text = []
     for idx in range(sample_tokens.shape[0]):
@@ -129,7 +129,7 @@ def shap_explanation_avast(explainer,sample_tokens,classes,tokenizer,model,idx_t
 
         for val, score in zip(top_feature, top_shap_values):
             # print(f"     {val}: {np.round(score, 4)}")
-            top_feat_dict[malware_family][val] = top_feat_dict[malware_family][val] + 1 if val in top_feat_dict.keys() else 1
+            top_feat_dict[malware_family][val] = top_feat_dict[malware_family][val] + 1 if val in top_feat_dict[malware_family].keys() else 1
 
         # Summary plot
         if summary_plot:
@@ -148,7 +148,7 @@ def shap_explanation_avast(explainer,sample_tokens,classes,tokenizer,model,idx_t
             id = tokenizer.word_index[feature]
 
             def f(x):
-                scores = model.predict(x, verbose=False)
+                scores = model.predict(x, verbose=False,batch_size=batch_size)
                 # return scores.flatten()[idx_true]
                 return np.argmax(scores)
 
@@ -159,10 +159,10 @@ def shap_explanation_avast(explainer,sample_tokens,classes,tokenizer,model,idx_t
 
     return top_feat_dict
 
-def shap_explanation_dataset1(explainer,sample_tokens,id_true,classes,tokenizer,model,summary_plot=True,dependence_plot=True,
+def shap_explanation_dataset1(explainer,sample_tokens,id_true,classes,tokenizer,model,batch_size=None,summary_plot=True,dependence_plot=True,
                               topk=10):
     # scores = model.predict(tf.constant(sample_tokens), verbose=False).squeeze()
-    ids_pred = [round(i[0]) for i in model.predict(tf.constant(sample_tokens), verbose=False)]
+    ids_pred = [round(i[0]) for i in model.predict(tf.constant(sample_tokens), verbose=False,batch_size=batch_size)]
 
     text = []
     for idx in range(sample_tokens.shape[0]):
@@ -187,8 +187,8 @@ def shap_explanation_dataset1(explainer,sample_tokens,id_true,classes,tokenizer,
 
         for val, score in zip(top_feature, top_shap_values):
             # print(f"     {val}: {np.round(score, 4)}")
-            # top_feat_dict[classes[id_pred]][val] = top_feat_dict[classes[id_pred]][val] + 1 if val in top_feat_dict.keys() else 1
-            top_feat_dict[classes[id_pred]][val] = top_feat_dict[classes[id_pred]][val] + score if val in top_feat_dict.keys() else score
+            top_feat_dict[classes[id_pred]][val] = top_feat_dict[classes[id_pred]][val] + 1 if val in top_feat_dict[classes[id_pred]].keys() else 1
+            # top_feat_dict[classes[id_pred]][val] = top_feat_dict[classes[id_pred]][val] + score if val in top_feat_dict.keys() else score
 
         # Summary plot
         if summary_plot:
@@ -202,7 +202,7 @@ def shap_explanation_dataset1(explainer,sample_tokens,id_true,classes,tokenizer,
             id = tokenizer.word_index[feature]
 
             def f(x):
-                scores = model.predict(x, verbose=False)
+                scores = model.predict(x, verbose=False,batch_size=batch_size)
                 return np.argmax(scores)
 
             fig, ax = plt.subplots(1, figsize=(10, 5))
@@ -213,12 +213,11 @@ def shap_explanation_dataset1(explainer,sample_tokens,id_true,classes,tokenizer,
     return top_feat_dict
 
 
-def print_top_feature_avast(top_feat_dict):
-    with open("../data/Avast/Avast_feature_set.json", "r") as fp:
+def print_top_feature_avast(top_feat_dict,feature_set_path):
+    with open(feature_set_path, "r") as fp:
         feature_set = json.load(fp)
-    d = {"reg": 0, "api": 0, "files": 0, "mutex": 0, "executed_commands": 0}
 
-    # Print most frequents feature
+    # Print most frequents feature in top10
     for malw_family in top_feat_dict.keys():
         print(f"{malw_family}")
         # Print top feature
@@ -226,6 +225,12 @@ def print_top_feature_avast(top_feat_dict):
             for k in sorted(top_feat_dict[malw_family], key=top_feat_dict[malw_family].get, reverse=True)[0:10]:
                 print(f"    {k}: {top_feat_dict[malw_family][k]}")
 
+    # Top Feature distribution
+    d = {"reg": 0, "api": 0, "files": 0, "mutex": 0, "executed_commands": 0}
+    for malw_family in top_feat_dict.keys():
+        # Print top feature
+        if top_feat_dict[malw_family]:
+            for k in sorted(top_feat_dict[malw_family], key=top_feat_dict[malw_family].get, reverse=True):
                 if k in feature_set['resolved_apis']:
                     d['api'] += 1
                 elif (k in feature_set['keys']) or (k in feature_set['write_keys']) or \
@@ -239,7 +244,8 @@ def print_top_feature_avast(top_feat_dict):
                 elif k in feature_set['executed_commands']:
                     d['executed_commands'] += 1
                 else:
-                    print(k)
+                    pass
+                    #print(f"    {k}: {top_feat_dict[malw_family][k]}")
 
     print("\nTop Feature distribution")
     for k, val in d.items():
@@ -272,7 +278,7 @@ def print_top_feature_dataset1(top_feat_dict):
                     (k in feature_set["file_created"]):
                 d["files"] += 1
             else:
-                print(k)
+                print(k,top_feat_dict[label][k])
 
     print("\nTop Feature distribution")
     for k, val in d.items():

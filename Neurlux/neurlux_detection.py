@@ -65,24 +65,25 @@ if __name__ == '__main__':
     MAXLEN = sum(feature_maxlen.values())
     EMBEDDING_DIM = 256  # 256
     BATCH_SIZE = 50
-    EPOCHS = 10  # 30
+    EPOCHS = 30  # 30
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT = 'random'  # 'time' or 'random'
+    TYPE_SPLIT = 'time'  # 'time' or 'random'
     SPLIT_DATE_VAL_TS = "2013-08-09"
     SPLIT_DATE_TR_VAL = "2012-12-09"
     SUBSET_N_SAMPLES = None  # if None takes all data
     WITH_ATTENTION = True
     TRAINING = False
     meta_path = "..\\data\\dataset1\\labels_preproc.csv"
-    model_name = "Neurlux_detection"
+    # model_name = "Neurlux_detection"
+    model_name=f"neurlux_detection_all_{EPOCHS}_{TYPE_SPLIT}"
     classes = ["Benign", "Malign"]
 
     # Explanation
     SHAP = True
-    LIME = True
-    EXP_MODE = 'single'  # single or multi
+    LIME = False
+    EXP_MODE = 'multi'  # single or multi
     TOPK_FEATURE = 10
-    N_SAMPLES_EXP = 4
+    N_SAMPLES_EXP = 2
 
     # Import data
     df = import_data(meta_path=meta_path, subset_n_samples=SUBSET_N_SAMPLES, feature_maxlen=feature_maxlen,
@@ -181,17 +182,6 @@ if __name__ == '__main__':
         print("\nLIME RESULTS")
         print_top_feature_dataset1(top_feat_dict)
 
-        # # Attention
-        # if WITH_ATTENTION:
-        #     top_feat_att=get_top_feature_attention(attention_model,tokenizer,x_tokens,topk=TOPK_FEATURE)
-        #     for i in range(N_SAMPLES_EXP):
-        #         cnt = 0
-        #         for val in top_feat_att[i]:
-        #             if val in top_feat_lime[i]:
-        #                 #print(val)
-        #                 cnt += 1
-        #         print(f"[Sample {i}] Common feature Attention/LIME: {cnt}/{TOPK_FEATURE}")
-
     # %% SHAP Explanation
     if SHAP:
         explainer = shap.KernelExplainer(model.predict, np.zeros((1, x_tr_tokens.shape[1])))
@@ -217,28 +207,26 @@ if __name__ == '__main__':
             sample_tokens = tokenizer.texts_to_sequences([sample])
             sample_tokens = pad_sequences(sample_tokens, maxlen=MAXLEN, padding='post')
             # y_true="Malign"
-            id_true=np.array(1)
-
-            # shap_values = explainer.shap_values(sample_tokens, nsamples="auto")
-            # shap.summary_plot(shap_values[0], sample_tokens, feature_names=text, class_names=classes,
-            #                   plot_size=(10., 5.))
-            #
-            # # Dependence plot
-            # feature = text[np.argmax(shap_values[0])]
-            # id = tokenizer.word_index[feature]
-            #
-            # fig, ax = plt.subplots(1, figsize=(10, 5))
-            # shap.partial_dependence_plot(feature, model.predict, sample_tokens, ice=False,
-            #                              model_expected_value=True, feature_expected_value=True, feature_names=text,
-            #                              xmin=id - 10, xmax=id + 10, ax=ax)
-            # print(model.predict(sample_tokens))
+            idx_true=np.array(1)
 
         elif EXP_MODE == "multi":
-            sample = x_ts.iloc[0:0 + N_SAMPLES_EXP]
-            sample_tokens = x_ts_tokens[0:0 + N_SAMPLES_EXP]
-            id_true=y_ts.iloc[0:0 + N_SAMPLES_EXP].values
+            # sample = x_ts.iloc[0:0 + N_SAMPLES_EXP]
+            # sample_tokens = x_ts_tokens[0:0 + N_SAMPLES_EXP]
+            # id_true=y_ts.iloc[0:0 + N_SAMPLES_EXP].values
 
-        top_feat_dict=shap_explanation_dataset1(explainer=explainer, sample_tokens=sample_tokens, id_true=id_true, classes=classes,
+            # Subset
+
+            sample_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]))
+            idx_true = np.zeros(shape=(N_SAMPLES_EXP * len(classes)),dtype=int)
+            for i in range(len(classes)):
+                idx = (y_ts == i).to_numpy()
+                sample_tokens[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP, :] = x_ts_tokens[idx, :][
+                                                                                        0:N_SAMPLES_EXP, :]
+                idx_true[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP] = y_ts.values[idx][0:N_SAMPLES_EXP]
+
+            print(idx_true.shape, sample_tokens.shape)
+
+        top_feat_dict=shap_explanation_dataset1(explainer=explainer, sample_tokens=sample_tokens, id_true=idx_true, classes=classes,
                                   tokenizer=tokenizer, model=model, summary_plot=False, dependence_plot=False,
                                   topk=TOPK_FEATURE)
 
@@ -246,31 +234,7 @@ if __name__ == '__main__':
         print("\nSHAP RESULTS")
         print_top_feature_dataset1(top_feat_dict)
 
-        # shap_values = explainer.shap_values(sample_tokens, nsamples="auto")
-        # top_feat = np.argsort(shap_values[0])[:, ::-1][:, 0:10]
-        #
-        # for i in range(len(text)):
-        #     print(f"Sample {i}")
-        #     words = np.array(text[i])
-        #     top_idx = top_feat[i, :]
-        #     top_shap_values = shap_values[0][i, :][top_idx]
-        #     top_feature = words[top_idx]
-        #     for val, score in zip(top_feature, top_shap_values):
-        #         print(f"     {val}: {np.round(score, 4)}")
-        #
-        #     shap.summary_plot(np.expand_dims(shap_values[0][i, :], axis=0),
-        #                       np.expand_dims(sample_tokens[i, :], axis=0),
-        #                       feature_names=text[i], class_names=classes, plot_size=(10., 5.))
-        #
-        #     # Dependence plot
-        #     feature=str(top_feature[0])
-        #     id=tokenizer.word_index[feature]
-        #
-        #     fig,ax=plt.subplots(1,figsize=(10,5))
-        #     shap.partial_dependence_plot(feature, model.predict, np.expand_dims(sample_tokens[i, :], axis=0), ice=False,
-        #                                  model_expected_value=True, feature_expected_value=True, feature_names=text[i],
-        #                                  xmin=id-10, xmax=id + 10,ax=ax)
-        #     print(model.predict(sample_tokens))
+
 
 # %% Check feature max len
 # import pandas as pd
