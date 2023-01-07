@@ -84,8 +84,9 @@ if __name__ == '__main__':
     LIME = True
     EXP_MODE = 'multi'  # single or multi
     TOPK_FEATURE = 10
-    N_SAMPLES_EXP = 10
-    SAVE_EXP_DICT=True
+    N_SAMPLES_EXP = 2
+    SAVE_EXP_DICT=False
+    feature_set_path = "../data/Avast/Avast_feature_set.json"
 
     # Import data
     df = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES,feature_maxlen=feature_maxlen,
@@ -191,8 +192,7 @@ if __name__ == '__main__':
         # Load top feat dict
         # with open(f"top_feat_dict_lime_{model_name}.json", "r") as outfile:
         #     top_feat_dict_lime = json.load(outfile)
-
-        print_top_feature_avast(top_feat_dict_lime)
+        print_top_feature_avast(top_feat_dict_lime,feature_set_path=feature_set_path)
 
 
 # %%
@@ -244,7 +244,7 @@ if __name__ == '__main__':
         # with open(f"top_feat_dict_shap_{model_name}.json", "r") as outfile:
         #     top_feat_dict_shap=json.load(outfile)
 
-        print_top_feature_avast(top_feat_dict_shap)
+        print_top_feature_avast(top_feat_dict_shap,feature_set_path=feature_set_path)
 
 
 # %% Check feature max len

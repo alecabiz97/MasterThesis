@@ -67,7 +67,7 @@ if __name__ == '__main__':
     BATCH_SIZE = 50
     EPOCHS = 30  # 30
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT = 'time'  # 'time' or 'random'
+    TYPE_SPLIT = 'random'  # 'time' or 'random'
     SPLIT_DATE_VAL_TS = "2013-08-09"
     SPLIT_DATE_TR_VAL = "2012-12-09"
     SUBSET_N_SAMPLES = None  # if None takes all data
@@ -80,10 +80,12 @@ if __name__ == '__main__':
 
     # Explanation
     SHAP = True
-    LIME = False
+    LIME = True
     EXP_MODE = 'multi'  # single or multi
     TOPK_FEATURE = 10
     N_SAMPLES_EXP = 2
+    SAVE_EXP_DICT = False
+    feature_set_path = "../data/dataset1/dataset1_feature_set.json"
 
     # Import data
     df = import_data(meta_path=meta_path, subset_n_samples=SUBSET_N_SAMPLES, feature_maxlen=feature_maxlen,
@@ -145,16 +147,17 @@ if __name__ == '__main__':
 
     # %% Explanation
 
+    hash = "00aae6c41996b3d1631f605ad783f1f8"
+    # hash = "00b26c8964bf6c20183d13867e6dbcb0"
+    # hash = "00a0f5fe1ba0102ed789b2aa85c3e316"
+    # hash = "1a9ab9e924a6856d642bbe88064e4236" # tesla-crypt
+    # hash = "000ed458b787e6841c103a694d11962c"
+    # hash = "000f6d35ea5397e40ffaa7931a9ae1d3"
+
     # LIME Explanation
     if LIME:
 
         if EXP_MODE == "single":
-            hash = "00aae6c41996b3d1631f605ad783f1f8"
-            # hash = "00b26c8964bf6c20183d13867e6dbcb0"
-            # hash = "00a0f5fe1ba0102ed789b2aa85c3e316"
-            # hash = "1a9ab9e924a6856d642bbe88064e4236" # tesla-crypt
-            # hash = "000ed458b787e6841c103a694d11962c"
-            # hash = "000f6d35ea5397e40ffaa7931a9ae1d3"
 
             with open(f"..\\data\\dataset1\\mal_preproc\\{hash}.json", "r") as fp:
                 data = json.load(fp)
@@ -164,37 +167,33 @@ if __name__ == '__main__':
                 x = data["behavior"][feat]
                 text.append(x[0:min(len(x), feature_maxlen[feat])])
 
-                x = pd.Series(preprocessing_data(str(text)))
-                x_tokens = tokenizer.texts_to_sequences(x)
-                x_tokens = pad_sequences(x_tokens, maxlen=MAXLEN, padding='post')
-                y = pd.Series(1)
+            x = pd.Series(preprocessing_data(str(text)))
+            x_tokens = tokenizer.texts_to_sequences(x)
+            x_tokens = pad_sequences(x_tokens, maxlen=MAXLEN, padding='post')
+            y = pd.Series(1)
 
         elif EXP_MODE == "multi":
             x = x_ts[0:N_SAMPLES_EXP]
             x_tokens = x_ts_tokens[0:N_SAMPLES_EXP]
             y = y_ts[0:N_SAMPLES_EXP]
 
-        top_feat_dict = lime_explanation_dataset1(x=x, x_tokens=x_tokens, y=y, model=model, tokenizer=tokenizer,
+        top_feat_dict_lime = lime_explanation_dataset1(x=x, x_tokens=x_tokens, y=y, model=model, tokenizer=tokenizer,
                                                  feature_maxlen=feature_maxlen, classes=classes,
                                                  num_features=TOPK_FEATURE, save_html=False)
-
+        # Save top feat dict
+        if SAVE_EXP_DICT:
+            with open(f"top_feat_dict_lime_{model_name}.json", "w") as outfile:
+                json.dump(top_feat_dict_lime, outfile, indent=4)
         # Print most frequents feature
         print("\nLIME RESULTS")
-        print_top_feature_dataset1(top_feat_dict)
+        print_top_feature_dataset1(top_feat_dict_lime,feature_set_path=feature_set_path)
 
     # %% SHAP Explanation
     if SHAP:
-        explainer = shap.KernelExplainer(model.predict, np.zeros((1, x_tr_tokens.shape[1])))
-        # explainer = shap.KernelExplainer(model.predict, shap.sample(x_tr_tokens,100))
+        # explainer = shap.KernelExplainer(model.predict, np.zeros((1, x_tr_tokens.shape[1])))
+        explainer = shap.KernelExplainer(model.predict, shap.sample(x_tr_tokens,1))
 
         if EXP_MODE == "single":
-            hash = "00aae6c41996b3d1631f605ad783f1f8"
-            # hash = "00b26c8964bf6c20183d13867e6dbcb0"
-            # hash = "00a0f5fe1ba0102ed789b2aa85c3e316"
-            # hash = "1a9ab9e924a6856d642bbe88064e4236" # tesla-crypt
-            # hash = "000ed458b787e6841c103a694d11962c"
-            # hash = "000f6d35ea5397e40ffaa7931a9ae1d3"
-
             with open(f"..\\data\\dataset1\\mal_preproc\\{hash}.json", "r") as fp:
                 data = json.load(fp)
 
@@ -215,7 +214,6 @@ if __name__ == '__main__':
             # id_true=y_ts.iloc[0:0 + N_SAMPLES_EXP].values
 
             # Subset
-
             sample_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]))
             idx_true = np.zeros(shape=(N_SAMPLES_EXP * len(classes)),dtype=int)
             for i in range(len(classes)):
@@ -226,13 +224,17 @@ if __name__ == '__main__':
 
             print(idx_true.shape, sample_tokens.shape)
 
-        top_feat_dict=shap_explanation_dataset1(explainer=explainer, sample_tokens=sample_tokens, id_true=idx_true, classes=classes,
+        top_feat_dict_shap=shap_explanation_dataset1(explainer=explainer, sample_tokens=sample_tokens, id_true=idx_true, classes=classes,
                                   tokenizer=tokenizer, model=model, summary_plot=False, dependence_plot=False,
                                   topk=TOPK_FEATURE)
+        # Save top feat dict
+        if SAVE_EXP_DICT:
+            with open(f"top_feat_dict_shap_{model_name}.json", "w") as outfile:
+                json.dump(top_feat_dict_shap, outfile, indent=4)
 
         # Print most frequents feature
         print("\nSHAP RESULTS")
-        print_top_feature_dataset1(top_feat_dict)
+        print_top_feature_dataset1(top_feat_dict_shap,feature_set_path=feature_set_path)
 
 
 

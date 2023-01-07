@@ -28,7 +28,7 @@ PATH_TO_LABELS = "../data/Avast/subset_100.csv" ;
 minibatchsize = 50
 iterations = 200
 epochs=5
-split_choose="random" # "time" or "random"
+split_choose="time" # "time" or "random"
 training=false # If true training the models, if false load the trained model
 
 df_labels=CSV.read(PATH_TO_LABELS,DataFrame);
@@ -53,7 +53,7 @@ println("N classes: $(n_classes)")
 @assert size(jsons, 1) == length(targets)
 
 if split_choose =="time"
-    train_indexes,test_indexes=time_split(n_samples,"2019-08-01")
+    train_indexes,test_indexes=time_split(n_samples,"2019-07-01")
 elseif split_choose =="random"
     train_indexes,test_indexes=random_split(n_samples,tr_frac -> 0.8)
 end
@@ -76,9 +76,13 @@ read_keys=map(jsons) do j  x = Dict("read_keys" => j["behavior"]["summary"]["rea
 delete_files=map(jsons) do j  x = Dict("delete_files" => j["behavior"]["summary"]["delete_files"]) end
 mutexes=map(jsons) do j  x = Dict("mutexes" => j["behavior"]["summary"]["mutexes"]) end
 
+behavior=map(jsons) do x x=x end
 
-features = [reg_keys,api,executed_commands,write_keys,files,read_files,write_files,delete_keys,read_keys,delete_files,mutexes]
-features_names = ["reg_keys","api","executed_commands","write_keys","files","read_files","write_files","delete_keys","read_keys","delete_files","mutexes"]
+#features = [reg_keys,api,executed_commands,write_keys,files,read_files,write_files,delete_keys,read_keys,delete_files,mutexes]
+#features_names = ["reg_keys","api","executed_commands","write_keys","files","read_files","write_files","delete_keys","read_keys","delete_files","mutexes"]
+
+features=[behavior]
+features_names=["all"]
 
 test_acc = []
 train_acc = []
@@ -127,7 +131,7 @@ for (jsons, name) in zip(features, features_names)
 
         for i in 1:epochs
             println("Epoch $(i)")
-        Flux.Optimise.train!(loss, ps, repeatedly(minibatch, iterations), opt, cb = Flux.throttle(cb, 2))
+            Flux.Optimise.train!(loss, ps, repeatedly(minibatch, iterations), opt, cb = Flux.throttle(cb, 2))
         end
 
         # Save model
@@ -141,10 +145,35 @@ for (jsons, name) in zip(features, features_names)
     full_test_accuracy = calculate_accuracy(model,data[test_indexes], df_labels.classification_family[test_indexes],labelnames)
     append!(train_acc,full_train_accuracy)
     append!(test_acc,full_test_accuracy)
-    #=
+    
     println("Final evaluation:")
     println("Accuratcy on train data: $(full_train_accuracy)")
-    println("Accuratcy on test data: $(full_test_accuracy)")
+    println("Accuratcy on test data: $(full_test_accuracy)") 
+    
+
+    # Save data for confusion matrix
+    #=
+    y_true=String[]
+    y_pred=String[]
+    for true_label in labelnames
+        family_indexes = filter(i -> df_labels.classification_family[i] == true_label, test_indexes)
+        predictions = tmap(data[family_indexes]) do s
+            Flux.onecold(softmax(model(s)), labelnames)[1]
+        end
+
+        tmp1=[true_label for i in 1:length(predictions)]
+
+        append!(y_true,tmp1)
+        append!(y_pred,predictions)
+    end 
+
+    d=Dict("y_true" => y_true, "y_pred" => y_pred )
+    json_string = JSON.json(d)
+
+    open("jsongrinder_confmat_all_$(split_choose).json","w") do f 
+        write(f, json_string) 
+    end
+    =#
 
     # Confusion matrix
     test_predictions = Dict()
@@ -170,7 +199,7 @@ for (jsons, name) in zip(features, features_names)
         end
         print("\n")
     end
-    =#
+    
 
 end
 

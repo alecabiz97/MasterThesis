@@ -22,11 +22,11 @@ if __name__ == '__main__':
     BATCH_SIZE = 50
     EPOCHS = 30  # 30
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT = 'random'  # 'time' or 'random'
-    SPLIT_DATE_VAL_TS = "2019-08-01"
+    TYPE_SPLIT = 'time'  # 'time' or 'random'
+    SPLIT_DATE_VAL_TS = "2019-07-01"
     SPLIT_DATE_TR_VAL = "2019-05-01"
     SUBSET_N_SAMPLES = None
-    TRAINING = True  # If True training the models, if False load the trained model
+    TRAINING = False  # If True training the models, if False load the trained model
     meta_path = "..\\data\\Avast\\subset_100.csv"
     classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
 

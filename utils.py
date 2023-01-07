@@ -38,8 +38,8 @@ def lime_explanation_avast(x,x_tokens,y,model,tokenizer,feature_maxlen,classes,n
     #         feature_set=json.load(fp)
     #     feature_importance={k:0 for k in feature_set.keys()}
 
-    exps = []
     top_feat_dict = {x: {} for x in classes}
+    # top_feat_dict = {x: {f"pos_{i+1}":{} for i in range(num_features)} for x in classes}
     for idx in range(len(y)):
         sample = x.iloc[idx]
         y_sample = y.iloc[idx]
@@ -53,7 +53,15 @@ def lime_explanation_avast(x,x_tokens,y,model,tokenizer,feature_maxlen,classes,n
         for val, score in explanation.as_list(label=explanation.available_labels()[0]):
             top_feat_dict[classes[y_pred]][val] = top_feat_dict[classes[y_pred]][val] + 1 if val in top_feat_dict[classes[y_pred]].keys() else 1
 
-        # exps.append(deepcopy(explanation))
+        # for i,(val, score) in enumerate(explanation.as_list(label=explanation.available_labels()[0])):
+        #     if val in top_feat_dict[classes[y_pred]][f"pos_{i+1}"].keys():
+        #         top_feat_dict[classes[y_pred]][f"pos_{i+1}"][val] += 1
+        #     else:
+        #         top_feat_dict[classes[y_pred]][f"pos_{i + 1}"][val] = 1
+
+
+
+                # exps.append(deepcopy(explanation))
 
         if save_html:
             explanation.save_to_file(f'exp_{idx}_avast.html')
@@ -128,7 +136,7 @@ def shap_explanation_avast(explainer,sample_tokens,classes,tokenizer,model,idx_t
         top_feature = words[top_idx]
 
         for val, score in zip(top_feature, top_shap_values):
-            # print(f"     {val}: {np.round(score, 4)}")
+            print(f"     {val}: {np.round(score, 4)}")
             top_feat_dict[malware_family][val] = top_feat_dict[malware_family][val] + 1 if val in top_feat_dict[malware_family].keys() else 1
 
         # Summary plot
@@ -251,15 +259,19 @@ def print_top_feature_avast(top_feat_dict,feature_set_path):
     for k, val in d.items():
         print(f"{k}: {val}")
 
-def print_top_feature_dataset1(top_feat_dict):
-    with open("../data/dataset1/dataset1_feature_set.json", "r") as fp:
+def print_top_feature_dataset1(top_feat_dict,feature_set_path):
+    with open(feature_set_path, "r") as fp:
         feature_set = json.load(fp)
-    d = {"reg": 0, "api": 0, "api_opt": 0, "files": 0, "mutex": 0, "dll_loaded": 0}
-
+    # Print most frequents feature in top10
     for label in top_feat_dict.keys():
         print(label)
-        for k in sorted(top_feat_dict[label], key=top_feat_dict[label].get, reverse=True)[0:20]:
+        for k in sorted(top_feat_dict[label], key=top_feat_dict[label].get, reverse=True)[0:10]:
             print(f"    {k}: {top_feat_dict[label][k]}")
+
+    # Top Feature distribution
+    d = {"reg": 0, "api": 0, "api_opt": 0, "files": 0, "mutex": 0, "dll_loaded": 0}
+    for label in top_feat_dict.keys():
+        for k in sorted(top_feat_dict[label], key=top_feat_dict[label].get, reverse=True):
 
             if k in feature_set["apistats"]:
                 d["api"] += 1
@@ -278,7 +290,8 @@ def print_top_feature_dataset1(top_feat_dict):
                     (k in feature_set["file_created"]):
                 d["files"] += 1
             else:
-                print(k,top_feat_dict[label][k])
+                pass
+                # print(k,top_feat_dict[label][k])
 
     print("\nTop Feature distribution")
     for k, val in d.items():
@@ -497,7 +510,8 @@ def plot_confusion_matrix(y_true,y_pred,classes):
     plt.figure(figsize=(10, 10))
 
     ConfusionMatrixDisplay.from_predictions([classes[i] for i in y_true], [classes[i] for i in y_pred], normalize='true',
-                                            labels=classes, cmap='Blues', colorbar=False, xticks_rotation='vertical')
+                                            labels=classes, cmap='Blues', colorbar=False, xticks_rotation='vertical',
+                                            values_format=".2g")
     plt.title("Confusion matrix")
     plt.tight_layout()
     plt.show()
