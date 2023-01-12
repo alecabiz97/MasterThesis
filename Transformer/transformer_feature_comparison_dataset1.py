@@ -20,13 +20,13 @@ if __name__ == '__main__':
     BATCH_SIZE = 50
     EPOCHS = 30 # 30
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT = 'random'  # 'time' or 'random'
+    TYPE_SPLIT = 'time'  # 'time' or 'random'
     SPLIT_DATE_VAL_TS = "2013-08-09"
     SPLIT_DATE_TR_VAL = "2012-12-09"
     SUBSET_N_SAMPLES = None  # if None takes all data
     TRAINING=False # If True training the models, if False load the trained model
-    TYPE_FIGURE="det" # "roc" - "det" - "roc_det"
-    SAVE_FIGURE=True
+    TYPE_FIGURE="roc" # "roc" - "det" - "roc_det"
+    SAVE_FIGURE=False
     meta_path="..\\data\\dataset1\\labels_preproc.csv"
     classes = ["Benign", "Malign"]
 
@@ -75,9 +75,9 @@ if __name__ == '__main__':
     if TYPE_FIGURE == 'roc_det':
         fig, axs = plt.subplots(1, 2, figsize=(15, 5))
     elif TYPE_FIGURE == 'roc':
-        fig_roc, ax_roc = plt.subplots(1, figsize=(10, 7))
+        fig_roc, ax_roc = plt.subplots(1, figsize=(12, 7))
     elif TYPE_FIGURE == 'det':
-        fig_det, ax_det = plt.subplots(1, figsize=(10, 7))
+        fig_det, ax_det = plt.subplots(1, figsize=(12, 7))
     colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple",
               "tab:brown", "gold", "tab:gray", "tab:olive", "tab:cyan",
               "black", "magenta", "navy", "lime", "darkgreen"]
@@ -117,8 +117,8 @@ if __name__ == '__main__':
         print("TEST")
 
         # print(classification_report(y_pred, y_ts))
-        test_acc.append(model.evaluate(x_ts_tokens, y_ts,batch_size=BATCH_SIZE)[1])
-        train_acc.append(model.evaluate(x_tr_tokens, y_tr,batch_size=BATCH_SIZE)[1])
+        # test_acc.append(model.evaluate(x_ts_tokens, y_ts,batch_size=BATCH_SIZE)[1])
+        # train_acc.append(model.evaluate(x_tr_tokens, y_tr,batch_size=BATCH_SIZE)[1])
         # print(confusion_matrix(y_ts,y_pred))
 
         # Confusion matrix
@@ -126,6 +126,12 @@ if __name__ == '__main__':
 
         scores = model.predict(tf.constant(x_ts_tokens), verbose=False,batch_size=BATCH_SIZE).squeeze()
         y_pred = scores.round().astype(int)
+
+        # Save scores data
+        # d = {'scores': scores.tolist(), 'y': y_ts.to_list()}
+        # json_object = json.dumps(d, indent=4)
+        # with open(f"Transformer_scores_y_{name}_{TYPE_SPLIT}.json", "w") as outfile:
+        #     outfile.write(json_object)
 
         # Plot ROC and DET curves
         if TYPE_FIGURE == 'roc_det':

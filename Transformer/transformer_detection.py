@@ -55,7 +55,7 @@ if __name__ == '__main__':
     BATCH_SIZE = 5
     EPOCHS = 30 # 30
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT='random' # 'time' or 'random'
+    TYPE_SPLIT='time' # 'time' or 'random'
     SPLIT_DATE_VAL_TS = "2013-08-09"
     SPLIT_DATE_TR_VAL = "2012-12-09"
     SUBSET_N_SAMPLES=None # if None takes all data
@@ -66,12 +66,12 @@ if __name__ == '__main__':
     classes = ["Benign", "Malign"]
 
     # Explanation
-    SHAP = True
+    SHAP = False
     LIME = False
     EXP_MODE = 'multi'  # single or multi
     TOPK_FEATURE = 10
-    N_SAMPLES_EXP = 2
-    SAVE_EXP_DICT = False
+    N_SAMPLES_EXP = 50
+    SAVE_EXP_DICT = True
     feature_set_path = "../data/dataset1/dataset1_feature_set.json"
 
     # Import data
@@ -113,6 +113,12 @@ if __name__ == '__main__':
 
     scores=model.predict(tf.constant(x_ts_tokens),verbose=False,batch_size=BATCH_SIZE).squeeze()
     y_pred=scores.round().astype(int)
+
+    # Save scores data
+    # d = {'scores': scores.tolist(), 'y': y_ts.to_list()}
+    # json_object = json.dumps(d, indent=4)
+    # with open(f"Transformer_scores_y_All_{TYPE_SPLIT}.json", "w") as outfile:
+    #     outfile.write(json_object)
 
 
     # Plot ROC and DET curves
@@ -160,9 +166,23 @@ if __name__ == '__main__':
             y = pd.Series(1)
 
         elif EXP_MODE == "multi":
-            x = x_ts[0:N_SAMPLES_EXP]
-            x_tokens = x_ts_tokens[0:N_SAMPLES_EXP]
-            y = y_ts[0:N_SAMPLES_EXP]
+            # Subset
+            x = []
+            x_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]))
+            y = np.zeros(shape=(N_SAMPLES_EXP * len(classes)), dtype=int)
+            for i in range(len(classes)):
+                idx = (y_ts == i).to_numpy()
+                x_tokens[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP, :] = x_ts_tokens[idx, :][0:N_SAMPLES_EXP,
+                                                                                   :]
+                y[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP] = y_ts.values[idx][0:N_SAMPLES_EXP]
+                x.extend(x_ts.values[idx][0:N_SAMPLES_EXP].tolist())
+
+            x = pd.Series(x)
+            y = pd.Series(y.tolist())
+
+            # x = x_ts[0:N_SAMPLES_EXP]
+            # x_tokens = x_ts_tokens[0:N_SAMPLES_EXP]
+            # y = y_ts[0:N_SAMPLES_EXP]
 
         top_feat_dict_lime = lime_explanation_dataset1(x=x, x_tokens=x_tokens, y=y, model=model, tokenizer=tokenizer,
                                                   feature_maxlen=feature_maxlen, classes=classes,batch_size=BATCH_SIZE,
@@ -182,7 +202,7 @@ if __name__ == '__main__':
         def f(x):
             return model.predict(x, batch_size=BATCH_SIZE)
         explainer = shap.KernelExplainer(f, np.zeros((1, x_tr_tokens.shape[1])))
-        # explainer = shap.KernelExplainer(model.predict, shap.sample(x_tr_tokens,100))
+        # explainer = shap.KernelExplainer(f, shap.sample(x_tr_tokens,1))
 
         if EXP_MODE == "single":
             with open(f"..\\data\\dataset1\\mal_preproc\\{hash}.json", "r") as fp:
@@ -217,8 +237,8 @@ if __name__ == '__main__':
 
         top_feat_dict_shap = shap_explanation_dataset1(explainer=explainer, sample_tokens=sample_tokens, id_true=idx_true,
                                                   classes=classes,
-                                                  tokenizer=tokenizer, model=model, summary_plot=True,
-                                                  dependence_plot=True,batch_size=BATCH_SIZE,
+                                                  tokenizer=tokenizer, model=model, summary_plot=False,
+                                                  dependence_plot=False,batch_size=BATCH_SIZE,
                                                   topk=TOPK_FEATURE)
         # Save top feat dict
         if SAVE_EXP_DICT:

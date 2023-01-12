@@ -142,13 +142,13 @@ def shap_explanation_avast(explainer,sample_tokens,classes,tokenizer,model,idx_t
         # Summary plot
         if summary_plot:
             shap.summary_plot([np.expand_dims(x[i,:],axis=0) for x in shap_values], np.expand_dims(sample_tokens[i, :], axis=0),
-                              feature_names=text[i], class_names=classes,plot_size=(10., 5.))
+                              feature_names=text[i], class_names=classes,plot_size=(20., 5.))
 
         # Summary plot feature
         if summary_plot_feat:
             shap.summary_plot(np.expand_dims(shap_values[id_pred][i, :], axis=0),
                               np.expand_dims(sample_tokens[i, :], axis=0),
-                              feature_names=text[i], plot_size=(10., 5.))
+                              feature_names=text[i], plot_size=(20., 5.))
 
         # Dependence plot
         if dependence_plot:

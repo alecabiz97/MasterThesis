@@ -81,8 +81,8 @@ if __name__ == '__main__':
 
     # Explanation
     SHAP=True
-    LIME = True
-    EXP_MODE = 'multi'  # single or multi
+    LIME = False
+    EXP_MODE = 'single'  # single or multi
     TOPK_FEATURE = 10
     N_SAMPLES_EXP = 2
     SAVE_EXP_DICT=False
@@ -131,7 +131,8 @@ if __name__ == '__main__':
 
 # %% Explanation
 
-    hash="b773c3406e289cd100237bec78642bf0cbc95f0c408b20165cc3d02b89d35081" # Emotet
+    # hash="b773c3406e289cd100237bec78642bf0cbc95f0c408b20165cc3d02b89d35081" # Emotet
+    hash="28f772c7049e65263014aa984d97ffd209843a1120e96f6a6a0c71ad2d8c0707" # Lokibot
 
     #     hash="f7a4a26c10c86ce3c1e9b606ed3e59c4c12758c24de95bd68016200b28e6b06b" # Emotet
     #     hash="6847bd9c431b65456654ce635ce365ca4c66bb056f648eab54e87ad7b7269c60" # Trickbot
@@ -140,7 +141,7 @@ if __name__ == '__main__':
     #     hash="efb793eafd7993152fcb0075887584cd65bab183d0ebea0bbbcf05255c8be8db" # njRAT
     #     hash="32c58040d3d6ec5305a1a0ebb48ba05aebe3ac2f905a7f152f32fc9170e16711" # Trickbot
 
-    y_true="Emotet"
+    y_true="Lokibot"
 
     # LIME Explanation
     if LIME:
@@ -182,7 +183,7 @@ if __name__ == '__main__':
 
         top_feat_dict_lime = lime_explanation_avast(x=x, x_tokens=x_tokens, y=y, model=model,tokenizer=tokenizer,
                                               feature_maxlen=feature_maxlen,classes=classes,
-                                              num_features=TOPK_FEATURE, save_html=False)
+                                              num_features=TOPK_FEATURE, save_html=True)
 
         # Save top feat dict
         if SAVE_EXP_DICT:
@@ -232,8 +233,8 @@ if __name__ == '__main__':
         top_feat_dict_shap = shap_explanation_avast(explainer=explainer, sample_tokens=sample_tokens,
                                                     classes=classes,
                                                     tokenizer=tokenizer, model=model, idx_true=idx_true,
-                                                    summary_plot_feat=False,
-                                                    summary_plot=False, dependence_plot=False)
+                                                    summary_plot_feat=True,
+                                                    summary_plot=True, dependence_plot=True)
 
         # Save top feat dict
         if SAVE_EXP_DICT:

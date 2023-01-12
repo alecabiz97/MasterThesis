@@ -27,10 +27,10 @@ THREADS = Threads.nthreads()
 PATH_BEN_REPORTS,PATH_MAL_REPORTS = "../data/dataset1/ben_preproc/","../data/dataset1/mal_preproc/"
 PATH_TO_LABELS = "../data/dataset1/labels_preproc.csv";
 epochs = 5 # 5
-split_choose="time" # 'time' or 'random'
+split_choose="random" # 'time' or 'random'
 minibatchsize = 50 # 50
 iterations = 200 # 200
-training=false # If true training the models, if false load the trained model
+training=true # If true training the models, if false load the trained model
 
 df = CSV.read(PATH_TO_LABELS, DataFrame);
 
@@ -99,8 +99,11 @@ behavior=map(jsons) do j
 end
 
 
-features = [api,api_opt,regop,regre,dll,mutex,regkey_deleted,regkey_written,file_deleted,file_failed,file_read,file_opened,file_exists,file_written,file_created]
-features_names = ["API","API_OPT","Regkey_Opened","Regkey_Read","DLL_Loaded","Mutex","Regkey_Deleted","Regkey_Written","File_Deleted","File_Failed","File_Read","File_Opened","File_Exists","File_Written","File_Created"]
+#features = [api,api_opt,regop,regre,dll,mutex,regkey_deleted,regkey_written,file_deleted,file_failed,file_read,file_opened,file_exists,file_written,file_created]
+#features_names = ["API","API_OPT","Regkey_Opened","Regkey_Read","DLL_Loaded","Mutex","Regkey_Deleted","Regkey_Written","File_Deleted","File_Failed","File_Read","File_Opened","File_Exists","File_Written","File_Created"]
+
+features=[behavior]
+features_names=["All"]
 
 #p = plot()
 p_roc=plot(title="Receiver Operating Characteristic",size=(700,400))
@@ -172,6 +175,14 @@ for (jsons, name) in zip(features, features_names)
     scores = softmax(model(data[test_indexes]))[2, :]
     roc_curve = roc(scores, df_labels.label[test_indexes], true)
 
+    # Save scores and y
+    d=Dict("scores" => scores, "y" => df_labels.label[test_indexes])
+    json_string = JSON.json(d)
+    open("JsonGrinder_scores_y_$(name)_$(split_choose).json","w") do f 
+        write(f, json_string) 
+    end
+
+
     auc=AUC(roc_curve)
     #println("AUC: $auc")
     #plot!(p, roc_curve, lw = 3, label = "$name -- AUC: $(round(auc,digits = 3))")
@@ -212,8 +223,8 @@ display(p_roc)
 display(p_det)
 
 #savefig(p_roc_det,"JsonGrinder_Roc_Det_$split_choose.pdf")
-savefig(p_roc,"JsonGrinder_Roc_$split_choose.pdf")
-savefig(p_det,"JsonGrinder_Det_$split_choose.pdf")
+#savefig(p_roc,"JsonGrinder_Roc_$split_choose.pdf")
+#savefig(p_det,"JsonGrinder_Det_$split_choose.pdf")
 
 
 println("\nFinal evaluation")
