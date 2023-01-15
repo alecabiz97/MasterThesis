@@ -140,7 +140,7 @@ if __name__ == '__main__':
         elif EXP_MODE == "multi":
             # Subset
             x = []
-            x_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]))
+            x_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]),dtype=int)
             y = np.zeros(shape=(N_SAMPLES_EXP * len(classes)), dtype=int)
             for i in range(len(classes)):
                 idx = (y_ts == i).to_numpy()
@@ -195,7 +195,7 @@ if __name__ == '__main__':
         elif EXP_MODE == "multi":
 
             # Subset
-            sample_tokens=np.zeros(shape=(N_SAMPLES_EXP*len(classes),x_ts_tokens.shape[1]))
+            sample_tokens=np.zeros(shape=(N_SAMPLES_EXP*len(classes),x_ts_tokens.shape[1]),dtype=int)
             idx_true=np.zeros(shape=(N_SAMPLES_EXP*len(classes)),dtype=int)
             for i in range(len(classes)):
                 idx=(y_ts==i).to_numpy()

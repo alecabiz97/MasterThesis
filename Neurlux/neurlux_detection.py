@@ -65,26 +65,26 @@ if __name__ == '__main__':
     MAXLEN = sum(feature_maxlen.values())
     EMBEDDING_DIM = 256  # 256
     BATCH_SIZE = 50
-    EPOCHS = 30  # 30
+    EPOCHS = 15  # 30
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT = 'time'  # 'time' or 'random'
+    TYPE_SPLIT = 'random'  # 'time' or 'random'
     SPLIT_DATE_VAL_TS = "2013-08-09"
     SPLIT_DATE_TR_VAL = "2012-12-09"
     SUBSET_N_SAMPLES = None  # if None takes all data
     WITH_ATTENTION = True
     TRAINING = False
     meta_path = "..\\data\\dataset1\\labels_preproc.csv"
-    # model_name = "Neurlux_detection"
-    model_name=f"neurlux_detection_all_{EPOCHS}_{TYPE_SPLIT}"
+    model_name = "Neurlux_detection"
+    # model_name=f"neurlux_detection_all_{EPOCHS}_{TYPE_SPLIT}"
     classes = ["Benign", "Malign"]
 
     # Explanation
-    SHAP = False
+    SHAP = True
     LIME = False
-    EXP_MODE = 'multi'  # single or multi
+    EXP_MODE = 'single'  # single or multi
     TOPK_FEATURE = 10
-    N_SAMPLES_EXP = 50
-    SAVE_EXP_DICT = True
+    N_SAMPLES_EXP = 2
+    SAVE_EXP_DICT = False
     feature_set_path = "../data/dataset1/dataset1_feature_set.json"
 
     # Import data
@@ -136,23 +136,22 @@ if __name__ == '__main__':
     #     outfile.write(json_object)
 
     # Plot ROC and DET curves
-    RocCurveDisplay.from_predictions(y_ts, scores, name="Neurlux")
-    plt.title("Receiver Operating Characteristic (ROC) curves")
-    plt.grid(linestyle="--")
-    plt.legend(loc='lower right')
-    plt.show()
-
-    DetCurveDisplay.from_predictions(y_ts, scores, name="Neurlux")
-    plt.title("Detection Error Tradeoff (DET) curves")
-    plt.grid(linestyle="--")
-    plt.legend(loc='upper right')
-    plt.show()
+    # RocCurveDisplay.from_predictions(y_ts, scores, name="Neurlux")
+    # plt.title("Receiver Operating Characteristic (ROC) curves")
+    # plt.grid(linestyle="--")
+    # plt.legend(loc='lower right')
+    # plt.show()
+    #
+    # DetCurveDisplay.from_predictions(y_ts, scores, name="Neurlux")
+    # plt.title("Detection Error Tradeoff (DET) curves")
+    # plt.grid(linestyle="--")
+    # plt.legend(loc='upper right')
+    # plt.show()
 
     # Confusion matrix
     plot_confusion_matrix(y_true=y_ts, y_pred=y_pred, classes=classes)
 
     # %% Explanation
-
     hash = "00aae6c41996b3d1631f605ad783f1f8"
     # hash = "00b26c8964bf6c20183d13867e6dbcb0"
     # hash = "00a0f5fe1ba0102ed789b2aa85c3e316"
@@ -181,7 +180,7 @@ if __name__ == '__main__':
         elif EXP_MODE == "multi":
             # Subset
             x = []
-            x_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]))
+            x_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]),dtype=int)
             y = np.zeros(shape=(N_SAMPLES_EXP * len(classes)), dtype=int)
             for i in range(len(classes)):
                 idx = (y_ts == i).to_numpy()
@@ -229,12 +228,9 @@ if __name__ == '__main__':
             idx_true=np.array(1)
 
         elif EXP_MODE == "multi":
-            # sample = x_ts.iloc[0:0 + N_SAMPLES_EXP]
-            # sample_tokens = x_ts_tokens[0:0 + N_SAMPLES_EXP]
-            # id_true=y_ts.iloc[0:0 + N_SAMPLES_EXP].values
 
             # Subset
-            sample_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]))
+            sample_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]),dtype=int)
             idx_true = np.zeros(shape=(N_SAMPLES_EXP * len(classes)),dtype=int)
             for i in range(len(classes)):
                 idx = (y_ts == i).to_numpy()
@@ -245,7 +241,7 @@ if __name__ == '__main__':
             print(idx_true.shape, sample_tokens.shape)
 
         top_feat_dict_shap=shap_explanation_dataset1(explainer=explainer, sample_tokens=sample_tokens, id_true=idx_true, classes=classes,
-                                  tokenizer=tokenizer, model=model, summary_plot=False, dependence_plot=False,
+                                  tokenizer=tokenizer, model=model, summary_plot=True, dependence_plot=True,
                                   topk=TOPK_FEATURE)
         # Save top feat dict
         if SAVE_EXP_DICT:
@@ -254,7 +250,7 @@ if __name__ == '__main__':
 
         # Print most frequents feature
         print("\nSHAP RESULTS")
-        print_top_feature_dataset1(top_feat_dict_shap,feature_set_path=feature_set_path)
+       # print_top_feature_dataset1(top_feat_dict_shap,feature_set_path=feature_set_path)
 
 
 

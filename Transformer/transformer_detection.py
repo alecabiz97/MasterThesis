@@ -55,7 +55,7 @@ if __name__ == '__main__':
     BATCH_SIZE = 5
     EPOCHS = 30 # 30
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT='time' # 'time' or 'random'
+    TYPE_SPLIT='random' # 'time' or 'random'
     SPLIT_DATE_VAL_TS = "2013-08-09"
     SPLIT_DATE_TR_VAL = "2012-12-09"
     SUBSET_N_SAMPLES=None # if None takes all data
@@ -66,12 +66,12 @@ if __name__ == '__main__':
     classes = ["Benign", "Malign"]
 
     # Explanation
-    SHAP = False
+    SHAP = True
     LIME = False
     EXP_MODE = 'multi'  # single or multi
     TOPK_FEATURE = 10
-    N_SAMPLES_EXP = 50
-    SAVE_EXP_DICT = True
+    N_SAMPLES_EXP = 2
+    SAVE_EXP_DICT = False
     feature_set_path = "../data/dataset1/dataset1_feature_set.json"
 
     # Import data
@@ -168,7 +168,7 @@ if __name__ == '__main__':
         elif EXP_MODE == "multi":
             # Subset
             x = []
-            x_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]))
+            x_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]),dtype=int)
             y = np.zeros(shape=(N_SAMPLES_EXP * len(classes)), dtype=int)
             for i in range(len(classes)):
                 idx = (y_ts == i).to_numpy()
@@ -225,7 +225,7 @@ if __name__ == '__main__':
             # id_true = y_ts.iloc[0:0 + N_SAMPLES_EXP].values
 
             # Subset
-            sample_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]))
+            sample_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]),dtype=int)
             idx_true = np.zeros(shape=(N_SAMPLES_EXP * len(classes)), dtype=int)
             for i in range(len(classes)):
                 idx = (y_ts == i).to_numpy()
@@ -237,8 +237,8 @@ if __name__ == '__main__':
 
         top_feat_dict_shap = shap_explanation_dataset1(explainer=explainer, sample_tokens=sample_tokens, id_true=idx_true,
                                                   classes=classes,
-                                                  tokenizer=tokenizer, model=model, summary_plot=False,
-                                                  dependence_plot=False,batch_size=BATCH_SIZE,
+                                                  tokenizer=tokenizer, model=model, summary_plot=True,
+                                                  dependence_plot=True,batch_size=BATCH_SIZE,
                                                   topk=TOPK_FEATURE)
         # Save top feat dict
         if SAVE_EXP_DICT:

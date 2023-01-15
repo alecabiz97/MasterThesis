@@ -183,13 +183,13 @@ def shap_explanation_dataset1(explainer,sample_tokens,id_true,classes,tokenizer,
         text.append(tmp)
 
     shap_values = explainer.shap_values(sample_tokens, nsamples="auto")
-    top_feat = np.argsort(shap_values[0])[:, ::-1][:, 0:topk]
+    top_feat_idxs = np.argsort(shap_values[0])[:, ::-1][:, 0:topk]
 
     top_feat_dict={x:{} for x in classes}
     for i in range(len(text)):
         id_pred=ids_pred[i]
         words = np.array(text[i])
-        top_idx = top_feat[i, :]
+        top_idx = top_feat_idxs[i, :]
         top_shap_values = shap_values[0][i, :][top_idx]
         top_feature = words[top_idx]
 
@@ -210,14 +210,62 @@ def shap_explanation_dataset1(explainer,sample_tokens,id_true,classes,tokenizer,
             id = tokenizer.word_index[feature]
 
             def f(x):
-                scores = model.predict(x, verbose=False,batch_size=batch_size)
-                return np.argmax(scores)
+                return model.predict(x, verbose=False,batch_size=batch_size)[0][0]
 
             fig, ax = plt.subplots(1, figsize=(10, 5))
             shap.partial_dependence_plot(feature, f, np.expand_dims(sample_tokens[i, :], axis=0), ice=False,
                                          model_expected_value=True, feature_expected_value=True, feature_names=text[i],
-                                         ylabel="Class ID",
-                                         xmin=id - 50, xmax=id + 50, ax=ax)
+                                         xmin=id - 10, xmax=id + 10, ax=ax)
+
+            ##################################################
+
+            sample = sample_tokens[i, :]
+
+            def dependence_plot(sample, shap_values, n_worst_feat):
+
+                worst_idx = list(np.argsort(shap_values[0])[:, 0:n_worst_feat][0])  # Worst feautre indexes
+                worst_feature = words[worst_idx]
+
+                dependence_ids = [id] + list(set(sample[worst_idx]))
+                dependence_ids = [str(v) for v in dependence_ids]
+                # dependence_ids=[tokenizer.word_index[top_f] for top_f in worst_feature]
+                top_id_index = top_idx[0]
+                probs = []
+                for val in dependence_ids:
+                    sample[top_id_index] = int(val)
+                    probs.append(model.predict(np.expand_dims(sample, axis=0))[0][0])
+
+                fig, ax = plt.subplots()
+
+                for i,j in zip(dependence_ids,probs):
+                    print(i,j)
+
+                # Scatter dependence plot
+                colors=['red']+['blue']*(len(probs)-1)
+                ax.scatter(dependence_ids, probs,color=colors)
+                plt.ylabel(f"E[f(x) | Feature in position {top_id_index+1}]")
+                plt.xlabel(f"Feature in position {top_id_index+1}")
+                plt.title("Dependence plot")
+                plt.show()
+
+                # ax.plot(dependence_ids, probs)
+                # plt.ylim([min(probs), 1])
+                # ax.axvline(x=dependence_ids[0], ymin=0, ymax=1,color='gray', linestyle='--')
+                # ax.axhline(y=probs[0],color='gray', linestyle='--')
+                # plt.vlines(x=dependence_ids[0], ymin=0, ymax=1,color='gray', linestyle='--')
+                # plt.hlines(y=probs[0],xmin=0,xmax=3,color='gray', linestyle='--')
+                # # Remove the top and right border
+                # ax.spines['top'].set_visible(False)
+                # ax.spines['right'].set_visible(False)
+                # ax.text(x=dependence_ids[-1], y=probs[0], s='E[f(x)]', color='black')
+                # ax.text(x=dependence_ids[0], y=0.9, s=f'E[{feature}]]', color='black')
+                # plt.ylabel(f"E[f(x) | {feature}]")
+                # plt.xlabel(f"{feature}")
+
+
+            dependence_plot(sample, shap_values, n_worst_feat=50)
+            ##################################################
+
     return top_feat_dict
 
 
