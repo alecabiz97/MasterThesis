@@ -26,7 +26,7 @@ THREADS = Threads.nthreads()
 # Hyperparameters
 PATH_BEN_REPORTS,PATH_MAL_REPORTS = "../data/dataset1/ben_preproc/","../data/dataset1/mal_preproc/"
 PATH_TO_LABELS = "../data/dataset1/labels_preproc.csv";
-epochs = 5 # 5
+epochs = 30
 split_choose="random" # 'time' or 'random'
 minibatchsize = 50 # 50
 iterations = 200 # 200
@@ -82,28 +82,15 @@ file_written = map(jsons) do j x = Dict("file_written" => j["behavior"]["file_wr
 file_created = map(jsons) do j x = Dict("file_created" => j["behavior"]["file_created"]) end
 
 
-#=
-api_opt_regre = map(jsons) do j  x = Dict("apistats_opt" => j["behavior"]["apistats_opt"],
-                                        "regkey_read" => j["behavior"]["regkey_read"]) end
-api_regre = map(jsons) do j  x = Dict("apistats" => j["behavior"]["apistats"],
-                                            "regkey_read" => j["behavior"]["regkey_read"]) end
-api_dll_regre = map(jsons) do j  x = Dict("apistats" => j["behavior"]["apistats"],
-                                        "dll_loaded" => j["behavior"]["dll_loaded"],
-                                        "regkey_read" => j["behavior"]["regkey_read"]) end
-
-=#
-
 behavior=map(jsons) do j
     #delete!(j["behavior"],"apistats")
     j = j["behavior"]
 end
 
 
-#features = [api,api_opt,regop,regre,dll,mutex,regkey_deleted,regkey_written,file_deleted,file_failed,file_read,file_opened,file_exists,file_written,file_created]
-#features_names = ["API","API_OPT","Regkey_Opened","Regkey_Read","DLL_Loaded","Mutex","Regkey_Deleted","Regkey_Written","File_Deleted","File_Failed","File_Read","File_Opened","File_Exists","File_Written","File_Created"]
+features = [behavior,api,api_opt,regop,regre,dll,mutex,regkey_deleted,regkey_written,file_deleted,file_failed,file_read,file_opened,file_exists,file_written,file_created]
+features_names = ["All","API","API_OPT","Regkey_Opened","Regkey_Read","DLL_Loaded","Mutex","Regkey_Deleted","Regkey_Written","File_Deleted","File_Failed","File_Read","File_Opened","File_Exists","File_Written","File_Created"]
 
-features=[behavior]
-features_names=["All"]
 
 #p = plot()
 p_roc=plot(title="Receiver Operating Characteristic",size=(700,400))
@@ -165,9 +152,9 @@ for (jsons, name) in zip(features, features_names)
     full_train_accuracy = calculate_accuracy(model,data[train_indexes], df_labels.label[train_indexes],labelnames)
     full_test_accuracy = calculate_accuracy(model,data[test_indexes], df_labels.label[test_indexes],labelnames)
 
-    #println("\nFinal evaluation ($(name)):")
-    #println("Accuratcy on train data: $(full_train_accuracy)")
-    #println("Accuratcy on test data: $(full_test_accuracy)")
+    println("\nFinal evaluation ($(name)):")
+    println("Accuratcy on train data: $(full_train_accuracy)")
+    println("Accuratcy on test data: $(full_test_accuracy)")
 
     append!(train_acc,full_train_accuracy)
     append!(test_acc,full_test_accuracy)
@@ -175,7 +162,7 @@ for (jsons, name) in zip(features, features_names)
     scores = softmax(model(data[test_indexes]))[2, :]
     roc_curve = roc(scores, df_labels.label[test_indexes], true)
 
-    # Save scores and y
+    # Save scores and y for ROC curve
     d=Dict("scores" => scores, "y" => df_labels.label[test_indexes])
     json_string = JSON.json(d)
     open("JsonGrinder_scores_y_$(name)_$(split_choose).json","w") do f 

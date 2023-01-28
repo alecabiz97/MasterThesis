@@ -33,7 +33,6 @@ if __name__ == '__main__':
         {'read_keys': 250},
         {'delete_files': 50},
         {'mutexes': 20},
-        # {'keys': 500,'resolved_apis': 500,'read_keys': 500,'files': 500},
     ]
     test_acc = []
     train_acc = []
@@ -73,16 +72,16 @@ if __name__ == '__main__':
         # Test
         print("TEST")
 
+        scores = model.predict(tf.constant(x_ts_tokens)).squeeze()
+        y_pred = scores.round().astype(int)
+
         # print(classification_report(y_pred, y_ts))
         test_acc.append(model.evaluate(x_ts_tokens, np.array(y_ts),verbose=False)[1])
         train_acc.append(model.evaluate(x_tr_tokens, np.array(y_tr),verbose=False)[1])
         # print(confusion_matrix(y_ts,y_pred))
 
         # Confusion matrix
-        # plot_confusion_matrix(y_true=y_ts,y_pred=y_pred,classes=classes)
-
-        scores = model.predict(tf.constant(x_ts_tokens)).squeeze()
-        y_pred = scores.round().astype(int)
+        plot_confusion_matrix(y_true=y_ts,y_pred=y_pred,classes=classes)
 
 
 # %%

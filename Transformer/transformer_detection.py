@@ -55,7 +55,7 @@ if __name__ == '__main__':
     BATCH_SIZE = 5
     EPOCHS = 30 # 30
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT='random' # 'time' or 'random'
+    TYPE_SPLIT='time' # 'time' or 'random'
     SPLIT_DATE_VAL_TS = "2013-08-09"
     SPLIT_DATE_TR_VAL = "2012-12-09"
     SUBSET_N_SAMPLES=None # if None takes all data
@@ -67,11 +67,11 @@ if __name__ == '__main__':
 
     # Explanation
     SHAP = True
-    LIME = False
+    LIME = True
     EXP_MODE = 'multi'  # single or multi
     TOPK_FEATURE = 10
-    N_SAMPLES_EXP = 2
-    SAVE_EXP_DICT = False
+    N_SAMPLES_EXP = 50
+    SAVE_EXP_DICT = True
     feature_set_path = "../data/dataset1/dataset1_feature_set.json"
 
     # Import data
@@ -115,14 +115,13 @@ if __name__ == '__main__':
     y_pred=scores.round().astype(int)
 
     # Save scores data
-    # d = {'scores': scores.tolist(), 'y': y_ts.to_list()}
-    # json_object = json.dumps(d, indent=4)
-    # with open(f"Transformer_scores_y_All_{TYPE_SPLIT}.json", "w") as outfile:
-    #     outfile.write(json_object)
+    d = {'scores': scores.tolist(), 'y': y_ts.to_list()}
+    json_object = json.dumps(d, indent=4)
+    with open(f"Transformer_scores_y_All_{TYPE_SPLIT}.json", "w") as outfile:
+        outfile.write(json_object)
 
 
     # Plot ROC and DET curves
-
     RocCurveDisplay.from_predictions(y_ts, scores,name="Transformer")
     plt.title("Receiver Operating Characteristic (ROC) curves")
     plt.grid(linestyle="--")
@@ -150,6 +149,7 @@ if __name__ == '__main__':
     # LIME Explanation
     if LIME:
 
+        # Explanation of a single sample given is hash
         if EXP_MODE == "single":
 
             with open(f"..\\data\\dataset1\\mal_preproc\\{hash}.json", "r") as fp:
@@ -165,6 +165,7 @@ if __name__ == '__main__':
             x_tokens = pad_sequences(x_tokens, maxlen=MAXLEN, padding='post')
             y = pd.Series(1)
 
+        # Explanation of multiple samples
         elif EXP_MODE == "multi":
             # Subset
             x = []
@@ -180,9 +181,6 @@ if __name__ == '__main__':
             x = pd.Series(x)
             y = pd.Series(y.tolist())
 
-            # x = x_ts[0:N_SAMPLES_EXP]
-            # x_tokens = x_ts_tokens[0:N_SAMPLES_EXP]
-            # y = y_ts[0:N_SAMPLES_EXP]
 
         top_feat_dict_lime = lime_explanation_dataset1(x=x, x_tokens=x_tokens, y=y, model=model, tokenizer=tokenizer,
                                                   feature_maxlen=feature_maxlen, classes=classes,batch_size=BATCH_SIZE,
@@ -204,6 +202,7 @@ if __name__ == '__main__':
         explainer = shap.KernelExplainer(f, np.zeros((1, x_tr_tokens.shape[1])))
         # explainer = shap.KernelExplainer(f, shap.sample(x_tr_tokens,1))
 
+        # Explanation of a single sample given is hash
         if EXP_MODE == "single":
             with open(f"..\\data\\dataset1\\mal_preproc\\{hash}.json", "r") as fp:
                 data = json.load(fp)
@@ -219,10 +218,8 @@ if __name__ == '__main__':
             # y_true="Malign"
             idx_true = np.array(1)
 
+        # Explanation of multiple samples
         elif EXP_MODE == "multi":
-            # sample = x_ts.iloc[0:0 + N_SAMPLES_EXP]
-            # sample_tokens = x_ts_tokens[0:0 + N_SAMPLES_EXP]
-            # id_true = y_ts.iloc[0:0 + N_SAMPLES_EXP].values
 
             # Subset
             sample_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]),dtype=int)
@@ -237,8 +234,8 @@ if __name__ == '__main__':
 
         top_feat_dict_shap = shap_explanation_dataset1(explainer=explainer, sample_tokens=sample_tokens, id_true=idx_true,
                                                   classes=classes,
-                                                  tokenizer=tokenizer, model=model, summary_plot=True,
-                                                  dependence_plot=True,batch_size=BATCH_SIZE,
+                                                  tokenizer=tokenizer, model=model, summary_plot=False,
+                                                  dependence_plot=False,batch_size=BATCH_SIZE,
                                                   topk=TOPK_FEATURE)
         # Save top feat dict
         if SAVE_EXP_DICT:

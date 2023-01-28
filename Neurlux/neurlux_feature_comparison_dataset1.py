@@ -24,7 +24,6 @@ if __name__ == '__main__':
     classes = ["Benign", "Malign"]
 
     feature_maxlen = [
-        # {"apistats": 200,"apistats_opt": 200,"regkey_opened": 500,"regkey_read": 500,"dll_loaded": 120,"mutex": 100},
         {"apistats": 200},
         {"apistats_opt": 200},
         {"regkey_opened": 500},
@@ -106,22 +105,24 @@ if __name__ == '__main__':
 
         # Test
         print("TEST")
+
+        scores = model.predict(tf.constant(x_ts_tokens)).squeeze()
+        y_pred = scores.round().astype(int)
+
         # print(classification_report(y_pred, y_ts))
-        # test_acc.append(model.evaluate(x_ts_tokens, y_ts)[1])
-        # train_acc.append(model.evaluate(x_tr_tokens, y_tr)[1])
+        test_acc.append(model.evaluate(x_ts_tokens, y_ts)[1])
+        train_acc.append(model.evaluate(x_tr_tokens, y_tr)[1])
         # print(confusion_matrix(y_ts,y_pred))
 
         # Confusion matrix
         # plot_confusion_matrix(y_true=y_ts,y_pred=y_pred,classes=classes)
 
-        scores = model.predict(tf.constant(x_ts_tokens)).squeeze()
-        y_pred = scores.round().astype(int)
 
         # Save scores data
-        # d = {'scores': scores.tolist(), 'y': y_ts.to_list()}
-        # json_object = json.dumps(d, indent=4)
-        # with open(f"Neurlux_scores_y_{name}_{TYPE_SPLIT}.json", "w") as outfile:
-        #     outfile.write(json_object)
+        d = {'scores': scores.tolist(), 'y': y_ts.to_list()}
+        json_object = json.dumps(d, indent=4)
+        with open(f"Neurlux_scores_y_{name}_{TYPE_SPLIT}.json", "w") as outfile:
+            outfile.write(json_object)
 
 
         # Plot ROC and DET curves

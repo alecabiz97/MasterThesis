@@ -65,26 +65,26 @@ if __name__ == '__main__':
     MAXLEN = sum(feature_maxlen.values())
     EMBEDDING_DIM = 256  # 256
     BATCH_SIZE = 50
-    EPOCHS = 15  # 30
+    EPOCHS = 30  # 30
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT = 'random'  # 'time' or 'random'
+    TYPE_SPLIT = 'time'  # 'time' or 'random'
     SPLIT_DATE_VAL_TS = "2013-08-09"
     SPLIT_DATE_TR_VAL = "2012-12-09"
     SUBSET_N_SAMPLES = None  # if None takes all data
     WITH_ATTENTION = True
     TRAINING = False
     meta_path = "..\\data\\dataset1\\labels_preproc.csv"
-    model_name = "Neurlux_detection"
-    # model_name=f"neurlux_detection_all_{EPOCHS}_{TYPE_SPLIT}"
+    # model_name = "Neurlux_detection"
+    model_name=f"neurlux_detection_all_{EPOCHS}_{TYPE_SPLIT}"
     classes = ["Benign", "Malign"]
 
     # Explanation
     SHAP = True
-    LIME = False
-    EXP_MODE = 'single'  # single or multi
+    LIME = True
+    EXP_MODE = 'multi'  # single or multi
     TOPK_FEATURE = 10
-    N_SAMPLES_EXP = 2
-    SAVE_EXP_DICT = False
+    N_SAMPLES_EXP = 50
+    SAVE_EXP_DICT = True
     feature_set_path = "../data/dataset1/dataset1_feature_set.json"
 
     # Import data
@@ -130,23 +130,23 @@ if __name__ == '__main__':
     y_pred = scores.round().astype(int)
 
     # Save scores data
-    # d = {'scores': scores.tolist(), 'y': y_ts.to_list()}
-    # json_object = json.dumps(d, indent=4)
-    # with open(f"Neurlux_scores_y_All_{TYPE_SPLIT}.json", "w") as outfile:
-    #     outfile.write(json_object)
+    d = {'scores': scores.tolist(), 'y': y_ts.to_list()}
+    json_object = json.dumps(d, indent=4)
+    with open(f"Neurlux_scores_y_All_{TYPE_SPLIT}.json", "w") as outfile:
+        outfile.write(json_object)
 
     # Plot ROC and DET curves
-    # RocCurveDisplay.from_predictions(y_ts, scores, name="Neurlux")
-    # plt.title("Receiver Operating Characteristic (ROC) curves")
-    # plt.grid(linestyle="--")
-    # plt.legend(loc='lower right')
-    # plt.show()
-    #
-    # DetCurveDisplay.from_predictions(y_ts, scores, name="Neurlux")
-    # plt.title("Detection Error Tradeoff (DET) curves")
-    # plt.grid(linestyle="--")
-    # plt.legend(loc='upper right')
-    # plt.show()
+    RocCurveDisplay.from_predictions(y_ts, scores, name="Neurlux")
+    plt.title("Receiver Operating Characteristic (ROC) curves")
+    plt.grid(linestyle="--")
+    plt.legend(loc='lower right')
+    plt.show()
+
+    DetCurveDisplay.from_predictions(y_ts, scores, name="Neurlux")
+    plt.title("Detection Error Tradeoff (DET) curves")
+    plt.grid(linestyle="--")
+    plt.legend(loc='upper right')
+    plt.show()
 
     # Confusion matrix
     plot_confusion_matrix(y_true=y_ts, y_pred=y_pred, classes=classes)
@@ -162,6 +162,7 @@ if __name__ == '__main__':
     # LIME Explanation
     if LIME:
 
+        # Explanation of a single sample given is hash
         if EXP_MODE == "single":
 
             with open(f"..\\data\\dataset1\\mal_preproc\\{hash}.json", "r") as fp:
@@ -177,6 +178,7 @@ if __name__ == '__main__':
             x_tokens = pad_sequences(x_tokens, maxlen=MAXLEN, padding='post')
             y = pd.Series(1)
 
+        # Explanation of multiple samples
         elif EXP_MODE == "multi":
             # Subset
             x = []
@@ -191,10 +193,6 @@ if __name__ == '__main__':
 
             x = pd.Series(x)
             y = pd.Series(y.tolist())
-
-            # x = x_ts[0:N_SAMPLES_EXP]
-            # x_tokens = x_ts_tokens[0:N_SAMPLES_EXP]
-            # y = y_ts[0:N_SAMPLES_EXP]
 
         top_feat_dict_lime = lime_explanation_dataset1(x=x, x_tokens=x_tokens, y=y, model=model, tokenizer=tokenizer,
                                                  feature_maxlen=feature_maxlen, classes=classes,
@@ -212,6 +210,7 @@ if __name__ == '__main__':
         explainer = shap.KernelExplainer(model.predict, np.zeros((1, x_tr_tokens.shape[1])))
         # explainer = shap.KernelExplainer(model.predict, shap.sample(x_tr_tokens,1))
 
+        # Explanation of a single sample given is hash
         if EXP_MODE == "single":
             with open(f"..\\data\\dataset1\\mal_preproc\\{hash}.json", "r") as fp:
                 data = json.load(fp)
@@ -227,6 +226,7 @@ if __name__ == '__main__':
             # y_true="Malign"
             idx_true=np.array(1)
 
+        # Explanation of multiple samples
         elif EXP_MODE == "multi":
 
             # Subset
@@ -241,7 +241,7 @@ if __name__ == '__main__':
             print(idx_true.shape, sample_tokens.shape)
 
         top_feat_dict_shap=shap_explanation_dataset1(explainer=explainer, sample_tokens=sample_tokens, id_true=idx_true, classes=classes,
-                                  tokenizer=tokenizer, model=model, summary_plot=True, dependence_plot=True,
+                                  tokenizer=tokenizer, model=model, summary_plot=False, dependence_plot=False,
                                   topk=TOPK_FEATURE)
         # Save top feat dict
         if SAVE_EXP_DICT:
@@ -250,7 +250,8 @@ if __name__ == '__main__':
 
         # Print most frequents feature
         print("\nSHAP RESULTS")
-       # print_top_feature_dataset1(top_feat_dict_shap,feature_set_path=feature_set_path)
+        print_top_feature_dataset1(top_feat_dict_shap,feature_set_path=feature_set_path)
+
 
 
 

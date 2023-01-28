@@ -27,7 +27,7 @@ PATH_TO_REDUCED_REPORTS = "../data/Avast/public_small_reports/"
 PATH_TO_LABELS = "../data/Avast/subset_100.csv" ;
 minibatchsize = 50
 iterations = 200
-epochs=5
+epochs=30
 split_choose="time" # "time" or "random"
 training=false # If true training the models, if false load the trained model
 
@@ -78,11 +78,9 @@ mutexes=map(jsons) do j  x = Dict("mutexes" => j["behavior"]["summary"]["mutexes
 
 behavior=map(jsons) do x x=x end
 
-#features = [reg_keys,api,executed_commands,write_keys,files,read_files,write_files,delete_keys,read_keys,delete_files,mutexes]
-#features_names = ["reg_keys","api","executed_commands","write_keys","files","read_files","write_files","delete_keys","read_keys","delete_files","mutexes"]
+features = [behavior,reg_keys,api,executed_commands,write_keys,files,read_files,write_files,delete_keys,read_keys,delete_files,mutexes]
+features_names = ["all","reg_keys","api","executed_commands","write_keys","files","read_files","write_files","delete_keys","read_keys","delete_files","mutexes"]
 
-features=[behavior]
-features_names=["all"]
 
 test_acc = []
 train_acc = []
@@ -118,15 +116,7 @@ for (jsons, name) in zip(features, features_names)
             test_acc = calculate_accuracy(model,data[eval_testset], df_labels.classification_family[eval_testset],labelnames)
             println("accuracy: train = $train_acc, test = $test_acc")
         end
-        
-        #=
-        function calculate_accuracy(x,y) 
-            vals = tmap(x) do s
-                Flux.onecold(softmax(model(s)), labelnames)[1]
-            end
-            mean(vals .== y)
-        end     
-         =#   
+
         #printtree(model)
 
         for i in 1:epochs

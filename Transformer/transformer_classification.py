@@ -48,7 +48,7 @@ if __name__ == '__main__':
     BATCH_SIZE = 10
     EPOCHS = 30 # 10
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT='random' # 'time' or 'random'
+    TYPE_SPLIT='time' # 'time' or 'random'
     SPLIT_DATE_VAL_TS = "2019-07-01"
     SPLIT_DATE_TR_VAL = "2019-05-01"
     SUBSET_N_SAMPLES=None
@@ -59,12 +59,13 @@ if __name__ == '__main__':
     classes = ['Adload', 'Emotet', 'HarHar', 'Lokibot', 'njRAT', 'Qakbot', 'Swisyn', 'Trickbot', 'Ursnif', 'Zeus']
 
     # Explanation
-    SHAP = False
-    LIME = False
+    SHAP = True
+    LIME = True
     EXP_MODE = 'multi'  # single or multi
     TOPK_FEATURE = 10
     N_SAMPLES_EXP = 10
-    SAVE_EXP_DICT=False
+    SAVE_EXP_DICT=True
+    feature_set_path = "../data/Avast/Avast_feature_set.json"
 
     # Import data
     df = import_data(meta_path=meta_path,subset_n_samples=SUBSET_N_SAMPLES,feature_maxlen=feature_maxlen,
@@ -109,7 +110,8 @@ if __name__ == '__main__':
 
     # %% Explanation
 
-    hash = "b773c3406e289cd100237bec78642bf0cbc95f0c408b20165cc3d02b89d35081"  # Emotet
+    # hash = "b773c3406e289cd100237bec78642bf0cbc95f0c408b20165cc3d02b89d35081"  # Emotet
+    hash="28f772c7049e65263014aa984d97ffd209843a1120e96f6a6a0c71ad2d8c0707" # Lokibot
 
     #     hash="f7a4a26c10c86ce3c1e9b606ed3e59c4c12758c24de95bd68016200b28e6b06b" # Emotet
     #     hash="6847bd9c431b65456654ce635ce365ca4c66bb056f648eab54e87ad7b7269c60" # Trickbot
@@ -118,11 +120,12 @@ if __name__ == '__main__':
     #     hash="efb793eafd7993152fcb0075887584cd65bab183d0ebea0bbbcf05255c8be8db" # njRAT
     #     hash="32c58040d3d6ec5305a1a0ebb48ba05aebe3ac2f905a7f152f32fc9170e16711" # Trickbot
 
-    y_true = "Emotet"
+    y_true = "Lokibot"
 
     # LIME Explanation
     if LIME:
 
+        # Explanation of a single sample given is hash
         if EXP_MODE == "single":
             idx_true = np.array([classes.index(y_true)])
             with open(f"..\\data\\Avast\\public_small_reports\\{hash}.json", "r") as fp:
@@ -137,13 +140,31 @@ if __name__ == '__main__':
             x_tokens = tokenizer.texts_to_sequences(x)
             x_tokens = pad_sequences(x_tokens, maxlen=MAXLEN, padding='post')
             y = pd.Series(idx_true)
+
+        # Explanation of multiple samples
         elif EXP_MODE == "multi":
             # Subset
             x = []
-            x_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]),dtype=int)
+            x_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]), dtype=int)
             y = np.zeros(shape=(N_SAMPLES_EXP * len(classes)), dtype=int)
             for i in range(len(classes)):
                 idx = (y_ts == i).to_numpy()
+
+                # By splitting wrt time there are only 6 Adload and 5 Zeus in x_ts, so I take same samples from x_tr
+                # if (i == 0) or (i == 9):
+                #     n = np.sum(idx)
+                #     x_tokens[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + n, :] = x_ts_tokens[idx, :][0:n, :]
+                #     x.extend(x_ts.values[idx][0:n].tolist())
+                #     # Add sample from training
+                #     idx = (y_tr == i).to_numpy()
+                #     x_tokens[(i * N_SAMPLES_EXP) + n:(i * N_SAMPLES_EXP) + N_SAMPLES_EXP, :] = x_tr_tokens[idx, :][
+                #                                                                                0:N_SAMPLES_EXP - n, :]
+                #     x.extend(x_tr.values[idx][0:N_SAMPLES_EXP - n].tolist())
+                #
+                #     y[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP] = np.array([i] * N_SAMPLES_EXP)
+                #
+                #
+                # else:
                 x_tokens[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP, :] = x_ts_tokens[idx, :][
                                                                                    0:N_SAMPLES_EXP, :]
                 y[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP] = y_ts.values[idx][0:N_SAMPLES_EXP]
@@ -152,9 +173,6 @@ if __name__ == '__main__':
             x = pd.Series(x)
             y = pd.Series(y.tolist())
 
-            # x = x_ts[0:N_SAMPLES_EXP]
-            # x_tokens = x_ts_tokens[0:N_SAMPLES_EXP]
-            # y = y_ts[0:N_SAMPLES_EXP]
 
         top_feat_dict_lime = lime_explanation_avast(x=x, x_tokens=x_tokens, y=y, model=model, tokenizer=tokenizer,
                                                feature_maxlen=feature_maxlen, classes=classes,
@@ -165,10 +183,9 @@ if __name__ == '__main__':
                 json.dump(top_feat_dict_lime, outfile, indent=4)
 
         # Load top feat dict
-        with open(f"top_feat_dict_lime_{model_name}.json", "r") as outfile:
-            top_feat_dict_lime = json.load(outfile)
+        # with open(f"top_feat_dict_lime_{model_name}.json", "r") as outfile:
+        #     top_feat_dict_lime = json.load(outfile)
 
-        feature_set_path="../data/Avast/Avast_feature_set.json"
         print_top_feature_avast(top_feat_dict_lime,feature_set_path=feature_set_path)
 
     # %%
@@ -179,6 +196,7 @@ if __name__ == '__main__':
         explainer = shap.KernelExplainer(f, np.zeros((1, x_ts_tokens.shape[1])))
         # explainer = shap.KernelExplainer(model.predict,  shap.sample(x_tr_tokens,10))
 
+        # Explanation of a single sample given is hash
         if EXP_MODE == "single":
             idx_true = np.array([classes.index(y_true)])
             with open(f"..\\data\\Avast\\public_small_reports\\{hash}.json", "r") as fp:
@@ -192,21 +210,32 @@ if __name__ == '__main__':
             sample_tokens = tokenizer.texts_to_sequences([sample])
             sample_tokens = pad_sequences(sample_tokens, maxlen=MAXLEN, padding='post')
 
+        # Explanation of multiple samples
         elif EXP_MODE == "multi":
 
             # Subset
-            sample_tokens=np.zeros(shape=(N_SAMPLES_EXP*len(classes),x_ts_tokens.shape[1]),dtype=int)
-            idx_true=np.zeros(shape=(N_SAMPLES_EXP*len(classes)),dtype=int)
+            sample_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]), dtype=int)
+            idx_true = np.zeros(shape=(N_SAMPLES_EXP * len(classes)), dtype=int)
             for i in range(len(classes)):
-                idx=(y_ts==i).to_numpy()
-                sample_tokens[i*N_SAMPLES_EXP:i*N_SAMPLES_EXP+N_SAMPLES_EXP,:]=x_ts_tokens[idx,:][0:N_SAMPLES_EXP,:]
-                idx_true[i*N_SAMPLES_EXP:i*N_SAMPLES_EXP+N_SAMPLES_EXP]=y_ts.values[idx][0:N_SAMPLES_EXP]
+                idx = (y_ts == i).to_numpy()
 
-            # sample = x_ts.iloc[0:0 + N_SAMPLES_EXP]
-            # sample_tokens = x_ts_tokens[0:0 + N_SAMPLES_EXP]
-            # idx_true = y_ts.iloc[0:0 + N_SAMPLES_EXP].values
+                # By splitting wrt time there are only 6 Adload and 5 Zeus in x_ts, so I take same samples from x_tr
+                # if (i == 0) or (i == 9):
+                #     n = np.sum(idx)
+                #     sample_tokens[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + n, :] = x_ts_tokens[idx, :][0:n, :]
+                #     # Add sample from training
+                #     idx = (y_tr == i).to_numpy()
+                #     sample_tokens[(i * N_SAMPLES_EXP) + n:(i * N_SAMPLES_EXP) + N_SAMPLES_EXP, :] = x_tr_tokens[idx, :][
+                #                                                                                     0:N_SAMPLES_EXP - n,
+                #                                                                                     :]
+                #     idx_true[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP] = np.array([i] * N_SAMPLES_EXP)
+                #
+                # else:
+                sample_tokens[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP, :] = x_ts_tokens[idx, :][
+                                                                                        0:N_SAMPLES_EXP, :]
+                idx_true[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP] = y_ts.values[idx][0:N_SAMPLES_EXP]
 
-            print(idx_true.shape, sample_tokens.shape)
+        print(idx_true.shape, sample_tokens.shape)
 
         top_feat_dict_shap = shap_explanation_avast(explainer=explainer, sample_tokens=sample_tokens, classes=classes,
                                                tokenizer=tokenizer, model=model, idx_true=idx_true,
@@ -218,10 +247,10 @@ if __name__ == '__main__':
                 json.dump(top_feat_dict_shap, outfile, indent=4)
 
         # Load top feat dict
-        with open(f"top_feat_dict_shap_{model_name}.json", "r") as outfile:
-            top_feat_dict_shap=json.load(outfile)
+        # with open(f"top_feat_dict_shap_{model_name}.json", "r") as outfile:
+        #     top_feat_dict_shap=json.load(outfile)
 
-        print_top_feature_avast(top_feat_dict_shap)
+        print_top_feature_avast(top_feat_dict_shap,feature_set_path=feature_set_path)
 
 # %% Create a json file with Avast feature set
 # def get_feature_set(meta_path):

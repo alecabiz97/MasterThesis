@@ -8,12 +8,20 @@ from collections import Counter
 # In each json file there are only the behavior and static info.
 # In the behavior part there are:
 #   -apistats (pid independent, merge of dictionary)
-#   -apistats_opt (optimized)
-#   -summary:
-#       -regkey_opened
-#       -regkey_read
-#       -dll_loaded
-#       -mutex
+#   -apistats_opt (optimized, take into account the number of system calls)
+#   -regkey_read
+#   -regkey_opened
+#   -regkey_deleted
+#   -regkey_written
+#   -file_deleted
+#   -file_failed
+#   -file_read
+#   -file_opened
+#   -file_exists
+#   -file_written
+#   -file_created
+#   -dll_loaded
+#   -mutex
 
 def merge_dict(dicts):
     new_d = {}

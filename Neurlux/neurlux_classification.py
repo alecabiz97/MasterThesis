@@ -66,9 +66,9 @@ if __name__ == '__main__':
 
     EMBEDDING_DIM=256 # 256
     BATCH_SIZE = 50
-    EPOCHS = 30 # 10
+    EPOCHS = 30 # 30
     LEARNING_RATE = 0.0001
-    TYPE_SPLIT='random' # 'time' or 'random'
+    TYPE_SPLIT='time' # 'time' or 'random'
     SPLIT_DATE_VAL_TS = "2019-07-01"
     SPLIT_DATE_TR_VAL = "2019-05-01"
     SUBSET_N_SAMPLES=None # if None takes all data
@@ -81,11 +81,11 @@ if __name__ == '__main__':
 
     # Explanation
     SHAP=True
-    LIME = False
-    EXP_MODE = 'single'  # single or multi
+    LIME = True
+    EXP_MODE = 'multi'  # single or multi
     TOPK_FEATURE = 10
-    N_SAMPLES_EXP = 2
-    SAVE_EXP_DICT=False
+    N_SAMPLES_EXP = 10
+    SAVE_EXP_DICT=True
     feature_set_path = "../data/Avast/Avast_feature_set.json"
 
     # Import data
@@ -146,6 +146,7 @@ if __name__ == '__main__':
     # LIME Explanation
     if LIME:
 
+        # Explanation of a single sample given is hash
         if EXP_MODE == "single":
             idx_true = np.array([classes.index(y_true)])
             with open(f"..\\data\\Avast\\public_small_reports\\{hash}.json", "r") as fp:
@@ -160,30 +161,46 @@ if __name__ == '__main__':
             x_tokens = tokenizer.texts_to_sequences(x)
             x_tokens = pad_sequences(x_tokens, maxlen=MAXLEN, padding='post')
             y = pd.Series(idx_true)
+
+        # Explanation of multiple samples
         elif EXP_MODE == "multi":
 
             # Subset
-            x=[]
-            x_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]),dtype=int)
+            x = []
+            x_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]), dtype=int)
             y = np.zeros(shape=(N_SAMPLES_EXP * len(classes)), dtype=int)
             for i in range(len(classes)):
                 idx = (y_ts == i).to_numpy()
-                x_tokens[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP, :] = x_ts_tokens[idx, :][0:N_SAMPLES_EXP,:]
+
+                # By splitting wrt time there are only 6 Adload and 5 Zeus in x_ts, so I take same samples from x_tr
+                # if (i == 0) or (i == 9):
+                #     n = np.sum(idx)
+                #     x_tokens[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + n, :] = x_ts_tokens[idx, :][0:n, :]
+                #     x.extend(x_ts.values[idx][0:n].tolist())
+                #     # Add sample from training
+                #     idx = (y_tr == i).to_numpy()
+                #     x_tokens[(i * N_SAMPLES_EXP) + n:(i * N_SAMPLES_EXP) + N_SAMPLES_EXP, :] = x_tr_tokens[idx, :][
+                #                                                                             0:N_SAMPLES_EXP - n, :]
+                #     x.extend(x_tr.values[idx][0:N_SAMPLES_EXP - n].tolist())
+                #
+                #     y[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP] = np.array([i] * N_SAMPLES_EXP)
+                #
+                #
+                # else:
+                x_tokens[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP, :] = x_ts_tokens[idx, :][
+                                                                                   0:N_SAMPLES_EXP, :]
                 y[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP] = y_ts.values[idx][0:N_SAMPLES_EXP]
                 x.extend(x_ts.values[idx][0:N_SAMPLES_EXP].tolist())
 
-            x=pd.Series(x)
-            y=pd.Series(y.tolist())
+            x = pd.Series(x)
+            y = pd.Series(y.tolist())
 
-            # x = x_ts[0:N_SAMPLES_EXP]
-            # x_tokens = x_ts_tokens[0:N_SAMPLES_EXP]
-            # y = y_ts[0:N_SAMPLES_EXP]
 
             print(y.shape, x_tokens.shape)
 
         top_feat_dict_lime = lime_explanation_avast(x=x, x_tokens=x_tokens, y=y, model=model,tokenizer=tokenizer,
                                               feature_maxlen=feature_maxlen,classes=classes,
-                                              num_features=TOPK_FEATURE, save_html=True)
+                                              num_features=TOPK_FEATURE, save_html=False)
 
         # Save top feat dict
         if SAVE_EXP_DICT:
@@ -201,6 +218,7 @@ if __name__ == '__main__':
         explainer = shap.KernelExplainer(model.predict, np.zeros((1,x_ts_tokens.shape[1])))
         # explainer = shap.KernelExplainer(model.predict,  shap.sample(x_tr_tokens,10))
 
+        # Explanation of a single sample given is hash
         if EXP_MODE == "single":
             idx_true = np.array([classes.index(y_true)])
             with open(f"..\\data\\Avast\\public_small_reports\\{hash}.json", "r") as fp:
@@ -214,27 +232,40 @@ if __name__ == '__main__':
             sample_tokens = tokenizer.texts_to_sequences([sample])
             sample_tokens = pad_sequences(sample_tokens, maxlen=MAXLEN, padding='post')
 
+        # Explanation of multiple samples
         elif EXP_MODE == "multi":
 
             # Subset
-            sample_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]),dtype=int)
-            idx_true = np.zeros(shape=(N_SAMPLES_EXP * len(classes)),dtype=int)
+            sample_tokens = np.zeros(shape=(N_SAMPLES_EXP * len(classes), x_ts_tokens.shape[1]), dtype=int)
+            idx_true = np.zeros(shape=(N_SAMPLES_EXP * len(classes)), dtype=int)
             for i in range(len(classes)):
                 idx = (y_ts == i).to_numpy()
-                sample_tokens[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP, :] = x_ts_tokens[idx, :][0:N_SAMPLES_EXP, :]
+
+                # By splitting wrt time there are only 6 Adload and 5 Zeus in x_ts, so I take same samples from x_tr
+                # if (i == 0) or (i == 9):
+                #     n = np.sum(idx)
+                #     sample_tokens[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + n, :] = x_ts_tokens[idx, :][0:n, :]
+                #     # Add sample from training
+                #     idx = (y_tr == i).to_numpy()
+                #     sample_tokens[(i * N_SAMPLES_EXP) + n:(i * N_SAMPLES_EXP) + N_SAMPLES_EXP, :] = x_tr_tokens[idx, :][
+                #                                                                                0:N_SAMPLES_EXP - n, :]
+                #
+                #     idx_true[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP] = np.array([i] * N_SAMPLES_EXP)
+                #
+                # else:
+                sample_tokens[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP, :] = x_ts_tokens[idx, :][
+                                                                                   0:N_SAMPLES_EXP, :]
                 idx_true[i * N_SAMPLES_EXP:i * N_SAMPLES_EXP + N_SAMPLES_EXP] = y_ts.values[idx][0:N_SAMPLES_EXP]
+
 
             print(idx_true.shape, sample_tokens.shape)
 
-            # sample = x_ts.iloc[0:0 + N_SAMPLES_EXP]
-            # sample_tokens = x_ts_tokens[0:0 + N_SAMPLES_EXP]
-            # idx_true = y_ts.iloc[0:0 + N_SAMPLES_EXP].values
 
         top_feat_dict_shap = shap_explanation_avast(explainer=explainer, sample_tokens=sample_tokens,
                                                     classes=classes,
                                                     tokenizer=tokenizer, model=model, idx_true=idx_true,
-                                                    summary_plot_feat=True,
-                                                    summary_plot=True, dependence_plot=True)
+                                                    summary_plot_feat=False,
+                                                    summary_plot=False, dependence_plot=False)
 
         # Save top feat dict
         if SAVE_EXP_DICT:

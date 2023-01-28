@@ -155,15 +155,88 @@ def shap_explanation_avast(explainer,sample_tokens,classes,tokenizer,model,idx_t
             feature = str(top_feature[0])
             id = tokenizer.word_index[feature]
 
-            def f(x):
-                scores = model.predict(x, verbose=False,batch_size=batch_size)
-                # return scores.flatten()[idx_true]
-                return np.argmax(scores)
+            # def f(x):
+            #     scores = model.predict(x, verbose=False,batch_size=batch_size)
+            #     # return scores.flatten()[idx_true]
+            #     return np.argmax(scores)
+            #
+            # fig, ax = plt.subplots(1, figsize=(10, 5))
+            # shap.partial_dependence_plot(feature, f, np.expand_dims(sample_tokens[i, :],axis=0), ice=False,
+            #                              model_expected_value=True, feature_expected_value=True, feature_names=text[i],
+            #                              ylabel="Class ID", xmin=id - 500, xmax=id + 500, ax=ax)
 
-            fig, ax = plt.subplots(1, figsize=(10, 5))
-            shap.partial_dependence_plot(feature, f, np.expand_dims(sample_tokens[i, :],axis=0), ice=False,
-                                         model_expected_value=True, feature_expected_value=True, feature_names=text[i],
-                                         ylabel="Class ID", xmin=id - 500, xmax=id + 500, ax=ax)
+            sample = sample_tokens[i, :]
+
+            def dependence_plot_avast(sample, shap_values, n_worst_feat):
+
+                worst_idx = list(np.argsort(shap_values[id_pred])[:, 0:n_worst_feat][0])  # Worst feautre indexes
+                worst_feature = words[worst_idx]
+
+                dependence_ids = [id] + list(set(sample[worst_idx]))
+                dependence_ids = [str(v) for v in dependence_ids]
+                # dependence_ids=[tokenizer.word_index[top_f] for top_f in worst_feature]
+                top_id_index = top_idx[0]
+                probs = []
+                for val in dependence_ids:
+                    sample[top_id_index] = int(val)
+                    probs.append(model.predict(np.expand_dims(sample, axis=0))[0])
+
+                probs=np.array(probs)
+                for val,probability in zip(dependence_ids,probs):
+                    print(val)
+                    for j,p in enumerate(probability):
+                        print(j,p)
+
+                def plot_dependence_bar(dependence_ids,probs):
+
+                    x = np.arange(len(dependence_ids))  # the label locations
+                    width = 0.05  # the width of the bars
+
+                    fig, ax = plt.subplots()
+
+                    # fig.set_figwidth(15)
+                    # fig.set_figheight(8)
+
+                    rects1 = ax.bar(x - width * 4.5, probs[:,0], width, label=f'{classes[0]}')
+                    rects2 = ax.bar(x - width * 3.5, probs[:,1], width, label=f'{classes[1]}')
+                    rects3 = ax.bar(x - width * 2.5, probs[:,2], width, label=f'{classes[2]}')
+                    rects4 = ax.bar(x - width * 1.5, probs[:,3], width, label=f'{classes[3]}')
+                    rects5 = ax.bar(x - width * 0.5, probs[:,4], width, label=f'{classes[4]}')
+                    rects6 = ax.bar(x + width * 0.5, probs[:,5], width, label=f'{classes[5]}')
+                    rects7 = ax.bar(x + width * 1.5, probs[:,6], width, label=f'{classes[6]}')
+                    rects8 = ax.bar(x + width * 2.5, probs[:,7], width, label=f'{classes[7]}')
+                    rects9 = ax.bar(x + width * 3.5, probs[:,8], width, label=f'{classes[8]}')
+                    rects10 = ax.bar(x + width * 4.5, probs[:,9], width, label=f'{classes[9]}')
+
+                    # Add some text for labels, title and custom x-axis tick labels, etc.
+                    ax.set_ylabel('Probability')
+                    ax.set_title('Dependence')
+                    ax.set_xticks(x, dependence_ids)
+                    ax.legend()
+
+                    # ax.bar_label(rects1, padding=3)
+                    # ax.bar_label(rects2, padding=3)
+                    # ax.bar_label(rects3, padding=3)
+                    # ax.bar_label(rects4, padding=3)
+
+                    fig.tight_layout()
+
+                    plt.show()
+                # fig, ax = plt.subplots()
+                #
+                # for i, j in zip(dependence_ids, probs):
+                #     print(i, j)
+                #
+                # # Scatter dependence plot
+                # colors = ['red'] + ['blue'] * (len(probs) - 1)
+                # ax.scatter(dependence_ids, probs, color=colors)
+                # plt.ylabel(f"E[f(x) | Feature in position {top_id_index + 1}]")
+                # plt.xlabel(f"Feature in position {top_id_index + 1}")
+                # plt.title("Dependence plot")
+                # plt.show()
+                plot_dependence_bar(dependence_ids, probs)
+
+            dependence_plot_avast(sample, shap_values, n_worst_feat=5)
 
     return top_feat_dict
 
@@ -263,7 +336,7 @@ def shap_explanation_dataset1(explainer,sample_tokens,id_true,classes,tokenizer,
                 # plt.xlabel(f"{feature}")
 
 
-            dependence_plot(sample, shap_values, n_worst_feat=50)
+            dependence_plot(sample, shap_values, n_worst_feat=80)
             ##################################################
 
     return top_feat_dict
